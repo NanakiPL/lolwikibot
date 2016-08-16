@@ -1,0 +1,7 @@
+{
+	"@metadata": {
+		"authors": [
+		]
+	},
+	"lolwikibot-update-summary": "Robot aktualizuje dane do wersji [[v%(short)s|%(full)s]]"
+}
