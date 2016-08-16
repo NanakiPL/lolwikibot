@@ -9,10 +9,20 @@ saveAll = False
 ignoreVC = False
 workOn = False
 
-def getAPI():
-    f = open('key.txt', 'r')
-    key = f.read()
-    print(key)
+class GeneralQuit(Exception): pass
+
+def getAPI(key):
+    if not key:
+        try:
+            f = open('key.txt')
+            key = f.read()
+        except IOError:
+            pywikibot.output('API key missing')
+            key = pywikibot.input('Input your key')
+            f = open('key.txt', 'w')
+            f.write(key)
+            raise GeneralQuit()
+    return RiotWatcher(key)
     
 def getSites():
     codes = sorted(pywikibot.config.usernames[pywikibot.config.family].keys())
@@ -55,14 +65,14 @@ def getSites():
             else:
                 list = pywikibot.input('Langs').strip()
             if list == '':
-                raise pywikibot.bot.QuitKeyboardInterrupt
+                raise GeneralQuit
             list = re.split(u'[\s\.,;]+', list)
             for lang in list:
                 if lang not in sites:
                     workOn = False
                     raise Exception(lang)
             break
-        except pywikibot.bot.QuitKeyboardInterrupt: raise
+        except pywikibot.bot.QuitKeyboardInterrupt: raise GeneralQuit
         except Exception, lang:
             pywikibot.output('Invalid code specified (%s). Try again.' % lang)
     for i, lang in enumerate(list):
@@ -72,6 +82,7 @@ def getSites():
 
 def main():
     global saveAll, ignoreVC, workOn
+    apikey = None
     for arg in pywikibot.handleArgs():
         if   arg == '-force':                saveAll = True
         elif arg == '-ignorevc':             ignoreVC = True
