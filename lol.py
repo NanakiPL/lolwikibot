@@ -15,13 +15,20 @@ def getAPI(key):
     if not key:
         try:
             f = open('key.txt')
-            key = f.read()
-        except IOError:
-            pywikibot.output('API key missing')
+            key = f.read().strip()
+            if key == '': raise ValueError()
+        except (ValueError, IOError) as e:
+            if type(e) is ValueError or e.errno == 2:
+                pywikibot.output('Riot API key missing')
+            else:
+                pywikibot.output('Couldn\'t read key.txt')
             key = pywikibot.input('Input your key')
-            f = open('key.txt', 'w')
-            f.write(key)
-            raise GeneralQuit()
+            try:
+                f = open('key.txt', 'w')
+                f.write(key)
+            except IOError:
+                pywikibot.output('Couldn\'t save the key in a file. Continuing regardless')
+    print('Key: %s' % key)
     return RiotWatcher(key)
     
 def getSites():
@@ -36,20 +43,23 @@ def getSites():
         
         if site.has_mediawiki_message('custom-lolwikibot-region'):
             sites[lang]['region'] = site.mediawiki_message('custom-lolwikibot-region').lower()
-            if site.has_mediawiki_message('custom-lolwikibot-language'):
+            realm = api.static_get_realm(region = sites[lang]['region'])
+            sites[lang]['version'] = realm['v']
+            try:
                 sites[lang]['locale'] = site.mediawiki_message('custom-lolwikibot-language').lower()
-                if sites[lang]['locale'] == '': del sites[lang]['locale']
-            else:
-                pywikibot.output('\03{lightaqua}%s\03{default} doesn\'t have a language specified - assuming region default' % site)
-            sites[lang]['api'] = lolapi.get(sites[lang]['region'])
+                if sites[lang]['locale'] == '': raise ValueError
+            except (ValueError, KeyError):
+                sites[lang]['locale'] = realm['l']
+                pywikibot.output('\03{lightaqua}%s\03{default} doesn\'t have a language specified - assuming region default: %s' % (site, realm['l']))
+            print(realm)
         else:
             pywikibot.output('\03{lightaqua}%s\03{default} doesn\'t have a region specified - please, create page containting region code under \03{lightyellow}MediaWiki:Custom-lolwikibot-region\03{default}' % site)
             del sites[lang]
     
     pywikibot.output('Here is a list of language variants that your bot can work on.\r\n')
-    pywikibot.output('\03{lightyellow}Wiki lang   Region   Locale\03{default}')
+    pywikibot.output('\03{lightyellow}Wiki lang   Region   Locale   Version\03{default}')
     for lang in codes:
-        pywikibot.output('%(lang)-9s   %(region)-6s   %(locale)-5s' % sites[lang])
+        pywikibot.output('%(lang)-9s   %(region)-6s   %(locale)-6s   %(version)-7s' % sites[lang])
     
     global workOn
     pywikibot.output('\r\nWhich ones do you want to work on?')
