@@ -1,0 +1,13 @@
+throttle.ctrl
+user-*.py
+key.txt
+*.bak
+*.py[cod]
+*.*~
+/.tox
+/*.egg
+/data*
+logs*
+*apicache*
+*pycache*
+/cache/*
