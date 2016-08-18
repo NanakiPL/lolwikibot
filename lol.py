@@ -7,9 +7,6 @@ from riotwatcher import RiotWatcher, LoLException
 from distutils.version import LooseVersion
 from collections import OrderedDict
 
-#
-from pprint import pprint
-
 class GeneralQuit(Exception): pass
 
 def getAPI():
@@ -155,26 +152,21 @@ def updateType(type, wikis):
     pywikibot.output('\r\n\03{yellow}=====  %-10s   ============================================================\03{default}\r\n' % type.upper())
     
     wikisPerVersion = fliterWikis(wikis, 'champion')
-    func = supported_types[type]
+    
+    import importlib
+    module = importlib.import_module(type)
     
     for version, list in wikisPerVersion.items():
         if len(list) == 0: continue
         pywikibot.output('\r\nVersion: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
-        func(list, version)
-        
-    
-def updateChampions(wikis, version):
-    pywikibot.output('CHAMPIONS [%s] [%s]' % (version, ', '.join([x['lang'] for x in wikis])))
-    champs = getAPI().static_get_champion_list(version = str(version), champ_data = 'stats,tags,info')
-    
-    pprint(champs)
-    
-    
+        module.update(list, version, getAPI())
+    print(version)
+    # TODO: Update current version on wikis (mind region versions)
     
 
-supported_types = OrderedDict([
-    ('champions', updateChampions),
-])
+supported_types = [
+    'champions'
+]
 
 # Global switches
 saveAll = False
