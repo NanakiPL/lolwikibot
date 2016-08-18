@@ -1,8 +1,10 @@
 # -*- coding: utf-8  -*-
-import pywikibot
+import pywikibot, re
 from collections import OrderedDict
+
 #
 from pprint import pprint
+
 def prepStats(stats):
     res = {}
     
@@ -20,26 +22,67 @@ def prepStats(stats):
     res['attackspeed']['base'] = round(0.625 / (1 + stats['attackspeedoffset']), 3)
     
     return OrderedDict(res.items())
+    
+def prepInfo(info):
+    return OrderedDict([
+        ('attack', info['attack']),
+        ('defense', info['defense']),
+        ('magic', info['magic']),
+        ('difficulty', info['difficulty'])
+    ])
 
 def update(wikis, version, api):
-    pywikibot.output('CHAMPIONS [%s] [%s]' % (version, ', '.join([x['lang'] for x in wikis])))
     champs = api.static_get_champion_list(version = str(version), champ_data = 'stats,tags,info')['data']
     
+    for wiki in wikis:
+        page = pywikibot.Page(wiki['site'], 'Champion', ns=828)
+        try:
+            page = page.getRedirectTarget()
+        except pywikibot.exceptions.IsNotRedirectPage:
+            pass
+        wiki['champModule'] = '%s/%%s/data' % page.title()
+    
     universal = {}
+    en = {}
     
     i = 1
     for key, champ in champs.items():
         universal[key] = s = {}
+        s['id'] = champ['id']
+        s['key'] = key
+        
         s['stats'] = prepStats(champ['stats'])
+        s['info'] = prepInfo(champ['info'])
+        s['tags'] = champ['tags']
         
-        
-        
-        
-        i+=1
-        if i > 6: break
-        
+        en[key] = {
+            'name': champ['name'],
+            'title': champ['title'],
+        }
     
-    pprint(universal)
+    locales = {}
+    for locale in [x['locale'] for x in wikis]:
+        locales[locale] = {}
+        champs = api.static_get_champion_list(version = str(version), locale = locale)['data']
+        
+        addEn = re.match('^(en)', locale) == None
+        for key, champ in champs.items():
+            locales[locale][key] = {}
+            locales[locale][key]['name'] = champ['name']
+            locales[locale][key]['title'] = champ['title']
+            if addEn:
+                locales[locale][key]['name_en'] = en[key]['name']
+                locales[locale][key]['title_en'] = en[key]['title']
+    
+    for key, champ in sorted(en.items(), key=lambda x: x[1]['name']):
+        pywikibot.output('  \03{lightpurple}%s\03{default}' % (champ['name']))
+        for wiki in wikis:
+            site = wiki['site']
+            locale = wiki['locale']
+            
+            page = pywikibot.Page(wiki['site'], wiki['champModule'] % locales[locale][key]['name'])
+            
+            pywikibot.output('    \03{aqua}%s\03{default}' % (page))
 
 # For testing purposes:
 if __name__ == '__main__':
@@ -56,4 +99,4 @@ if __name__ == '__main__':
             'region': 'na',
             'site': pywikibot.Site("pl", "lol")
         }
-    ], '6.16.2', getAPI())
+    ], '6.10.1', getAPI())
