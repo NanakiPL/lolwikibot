@@ -1,19 +1,26 @@
 # -*- coding: utf-8  -*-
 
 import pywikibot
-from riotwatcher import RiotWatcher, LoLException
-from distutils.version import LooseVersion
 import re
 
-# Global switches
-saveAll = False
-ignoreVC = False
-workOn = False
+from riotwatcher import RiotWatcher, LoLException
+from distutils.version import LooseVersion
+from collections import OrderedDict
+
+#
+from pprint import pprint
 
 class GeneralQuit(Exception): pass
 
-def getAPI(key):
-    if not key:
+def getAPI():
+    global api, apikey
+    try:
+        api = RiotWatcher(apikey)
+    except NameError:
+        pass
+    try:
+        return api
+    except NameError:
         try:
             f = open('key.txt')
             key = f.read().strip()
@@ -29,108 +36,156 @@ def getAPI(key):
                 f.write(key)
             except IOError:
                 pywikibot.output('Couldn\'t save the key in a file. Continuing regardless')
-    return RiotWatcher(key)
+        api = RiotWatcher(key)
+    return api
     
-def getSites():
+def getRealm(region = 'na'):
+    region = str(region).lower()
+    try:
+        getRealm.realms
+    except AttributeError:
+        getRealm.realms = {}
+    try:
+        return getRealm.realms[region]
+    except KeyError:
+        getRealm.realms[region] = getAPI().static_get_realm(region = region)
+    return getRealm.realms[region]
+    
+def getWikis(langs = None):
     codes = sorted(pywikibot.config.usernames[pywikibot.config.family].keys())
     try:
         codes.insert(0, codes.pop(codes.index(u'en')))
     except ValueError:
         pass
+    try:
+        codes = validateList(codes, langs)
+    except KeyError as e:
+        pywikibot.output('\r\nError:  No wiki in \'%s\' language. Valid langs: %s' % (e.args[0], ', '.join(e.args[1])))
+        raise GeneralQuit
     
-    realms = {}
-    sites = {}
+    wikis = OrderedDict()
     for lang in codes:
-        sites[lang] = {}
-        sites[lang]['site'] = site = pywikibot.Site(lang)
-        sites[lang]['lang'] = site.lang
+        wikis[lang] = wiki = {}
+        
+        wiki['site'] = site = pywikibot.Site(lang)
+        wiki['lang'] = lang
         
         try:
-            sites[lang]['version'] = LooseVersion(re.match('([0-9]+\.[0-9]+\.[0-9]+)', site.expand_text('{{#invoke:lolwikibot|get|champions}}')).group(1))
-        except AttributeError:
-            sites[lang]['version'] = None
+            wiki['region'] = site.mediawiki_message('custom-lolwikibot-region').strip().lower()
+            if wiki['region'] == '': raise ValueError
+        except (ValueError, KeyError):
+            pywikibot.output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a region specified - assuming NA' % site)
+            wiki['region'] = 'na'
         
-        if site.has_mediawiki_message('custom-lolwikibot-region'):
-            sites[lang]['region'] = site.mediawiki_message('custom-lolwikibot-region').lower()
-            if sites[lang]['region'] not in realms:
-                realms[sites[lang]['region']] = api.static_get_realm(region = sites[lang]['region'])
-            realm = realms[sites[lang]['region']]
-            sites[lang]['update'] = LooseVersion(realm['v'])
-            
-            try:
-                sites[lang]['locale'] = site.mediawiki_message('custom-lolwikibot-language').lower()
-                if sites[lang]['locale'] == '': raise ValueError
-            except (ValueError, KeyError):
-                sites[lang]['locale'] = realms[sites[lang]['region']]['l']
-                pywikibot.output('\03{lightaqua}%s\03{default} doesn\'t have a language specified - assuming region default: %s' % (site, realms[sites[lang]['region']]['l']))
-        else:
-            pywikibot.output('\03{lightaqua}%s\03{default} doesn\'t have a region specified - please, create page containting region code under \03{lightyellow}MediaWiki:Custom-lolwikibot-region\03{default}' % site)
-            del sites[lang]
-    
-    pywikibot.output('\r\nHere is a list of language variants that your bot can work on:\r\n')
-    pywikibot.output('\03{lightyellow}Language    Region    Locale    Version: wiki    current\03{default}')
-    for lang in codes:
-        pywikibot.output('%(lang)-8s    %(region)-6s    %(locale)-6s    %(color)s%(version)13s    %(update)-7s\03{default}' % {
-            'lang': sites[lang]['lang'],
-            'region': sites[lang]['region'],
-            'locale': sites[lang]['locale'],
-            'version': sites[lang]['version'],
-            'update': sites[lang]['update'],
-            'color': '\03{lightred}' if sites[lang]['version'] < sites[lang]['update'] else '\03{lightgreen}',
-        })
-    codes = [x for x in codes if sites[x]['version'] < sites[x]['update']]
-    print(codes)
-    
-    global workOn
-    pywikibot.output('\r\nWhich ones do you want to work on?')
-    pywikibot.output('\03{gray}(List of lang codes or empty to quit)\03{default}')
-    while True:
         try:
-            if workOn == True:
-                pywikibot.output('Langs: \03{lightaqua}all\03{default}')
-                return sites
-            elif workOn:
-                list = workOn
-                pywikibot.output('Langs: \03{lightaqua}%s\03{default}' % workOn)
-            else:
-                list = pywikibot.input('Langs').strip()
-            if list == u'':
-                raise GeneralQuit
-            list = re.split(u'[\s\.,;]+', list)
-            for lang in list:
-                if lang not in sites:
-                    workOn = False
-                    raise ValueError(lang)
-            break
-        except (pywikibot.bot.QuitKeyboardInterrupt, GeneralQuit): raise GeneralQuit
-        except ValueError, lang:
-            pywikibot.output('Invalid code specified (%s). Try again.' % lang)
-    for i, lang in enumerate(list):
-        list[i] = sites[lang]
-    return list
+            wiki['locale'] = site.mediawiki_message('custom-lolwikibot-locale').strip()
+            if wiki['locale'] == '': raise ValueError
+        except (ValueError, KeyError):
+            wiki['locale'] = getRealm(wiki['region'])['l']
+            pywikibot.output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (site, wiki['locale']))
+    return wikis
 
+def validateList(values, input = None):
+    try:
+        values = values.keys()
+    except AttributeError:
+        pass
+    
+    if input == None: return values
+    input = str(input).strip().lower()
+    if input == 'all': return values
+    input = re.split('\s*,\s*', input)
+    
+    res = []
+    for val in input:
+        if val in values:
+            res.append(val)
+        else:
+            raise KeyError(val, values)
+    return res
+    
+def fliterWikis(wikis, key):
+    res = {}
+    
+    pywikibot.output('\03{lightyellow}Wiki          Region    Locale            Old  New\03{default}')
+    for lang, wiki in wikis.items():
+        realm = getRealm(wiki['region'])
+        new = LooseVersion(realm['n'][key])
+        if str(new) not in res: res[str(new)] = []
+        try:
+            old = wiki['site'].expand_text('{{#invoke:lolwikibot|version|%s}}' % key)
+            old = LooseVersion(re.match('^([0-9]+(\.[0-9]+){1,2})$', old).group(1))
+        except AttributeError:
+            old = None
+            old = LooseVersion('6.16.2')
+        
+        global forceUpdate
+        skip = not forceUpdate and old >= new
+        if not skip:
+            res[str(new)].append(wiki)
+        pywikibot.output('%(wiki)-10s    %(region)-6s    %(locale)-6s        %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
+            'wiki':    str(wiki['site']),
+            'region':  wiki['region'],
+            'locale':  wiki['locale'],
+            'old':     old,
+            'new':     new,
+            'color':   '\03{lightred}' if old < new else '\03{lightgreen}',
+            'action':  'SKIP' if skip else '',
+        })
+    pywikibot.output('')
+    return OrderedDict(sorted(res.items(), key=lambda x: LooseVersion(x[0])))
+    
+def updateChampions(wikis):
+    pywikibot.output('\r\n\03{yellow}=====   CHAMPIONS   ============================================================\03{default}\r\n')
+    
+    wikisPerVersion = fliterWikis(wikis, 'champion')
+    
+    for version, list in wikisPerVersion.items():
+        if len(list) == 0: continue        
+        pywikibot.output('Version: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s\03{default}: %s' % (version, len(list), 'wiki' if len(list) == 1 else 'wikis', ', '.join(map(lambda x: x['lang'], list))))
+        
+
+
+supported_types = OrderedDict([
+    ('champions', updateChampions),
+])
+
+# Global switches
+saveAll = False
+forceUpdate = False
+workOn = False
 
 def main():
-    global saveAll, ignoreVC, workOn, stepByStep
-    apikey = None
-    for arg in pywikibot.handleArgs():
-        if   arg == '-force':                saveAll = True
-        elif arg == '-all':                  workOn = True
-        elif arg.startswith('-langs:'):      workOn = arg[7:]
-        elif arg.startswith('-key:'):        apikey = arg[5:]
-        elif arg.startswith('-since:'):      stepByStep = arg[7:]
+    global saveAll, forceUpdate, apikey, sinceVersion
     
-    global api
+    langs = None
+    types = None
+    for arg in pywikibot.handleArgs():
+        if   arg == '-always':               saveAll = True
+        if   arg == '-force':                forceUpdate = True
+        elif arg.startswith('-langs:'):      langs = arg[7:]
+        elif arg.startswith('-key:'):        apikey = arg[5:]
+        elif arg.startswith('-since:'):      sinceVersion = arg[7:]
+        elif arg.startswith('-types:'):      types = arg[7:]
+    
     try:
-        api = getAPI(apikey)
-        sites = getSites()
+        wikis = getWikis(langs)
         
-        getChamps()
-        champs = api.static_get_champion_list(version = LooseVersion('6.1.1'), champ_data = 'stats,tags,info')
-        print(champs)
+        try:
+            types = validateList(supported_types, types)
+        except KeyError as e:
+            pywikibot.output('\r\nError:  Type \'%s\' not supported. Valid types: %s' % (e.args[0], ', '.join(e.args[1])))
+            raise GeneralQuit
         
-    except GeneralQuit:
-        pass
+        for t in types:
+            supported_types[t](wikis)
+        
+    except (GeneralQuit, pywikibot.bot.QuitKeyboardInterrupt, KeyboardInterrupt) as e:
+        pywikibot.output('\r\n\03{lightaqua}Stopping open threads\03{default} - to force quit press Ctrl+C' + ' again' if type(e) is KeyboardInterrupt else '')
+        try:
+            pywikibot.stopme()
+        except KeyboardInterrupt:
+            pass
 
 if __name__ == '__main__':
     main()
