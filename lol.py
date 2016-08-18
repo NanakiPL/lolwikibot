@@ -104,8 +104,19 @@ def validateList(values, input = None):
             raise KeyError(val, values)
     return res
     
+def lolVersion(text):
+    try:
+        return LooseVersion(re.match('^([0-9]+(\.[0-9]+){1,2})$', str(text).strip()).group(1))
+    except AttributeError:
+        raise ValueError('Bad version format')
+    
 def fliterWikis(wikis, key):
+    global versions
+    
     res = {}
+    if versions:
+        for v in versions:
+            res[str(v)] = []
     
     pywikibot.output('\03{lightyellow}Wiki          Region    Locale            Old  New\03{default}')
     for lang, wiki in wikis.items():
@@ -114,37 +125,52 @@ def fliterWikis(wikis, key):
         if str(new) not in res: res[str(new)] = []
         try:
             old = wiki['site'].expand_text('{{#invoke:lolwikibot|version|%s}}' % key)
-            old = LooseVersion(re.match('^([0-9]+(\.[0-9]+){1,2})$', old).group(1))
-        except AttributeError:
+            old = lolVersion(old)
+        except ValueError:
             old = None
-            old = LooseVersion('6.16.2')
+            old = lolVersion('6.5.1')
         
-        global forceUpdate
-        skip = not forceUpdate and old >= new
-        if not skip:
-            res[str(new)].append(wiki)
+        if versions:
+            skip = False
+            for v in versions:
+                if (not old or old < v) and new >= v:
+                    res[str(v)].append(wiki)
+        else:
+            global forceUpdate
+            skip = not forceUpdate and old >= new
+            if not skip:
+                res[str(new)].append(wiki)
         pywikibot.output('%(wiki)-10s    %(region)-6s    %(locale)-6s        %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
             'wiki':    str(wiki['site']),
             'region':  wiki['region'],
             'locale':  wiki['locale'],
             'old':     old,
             'new':     new,
-            'color':   '\03{lightred}' if old < new else '\03{lightgreen}',
+            'color':   '\03{lightred}' if not old or old < new else '\03{lightgreen}',
             'action':  'SKIP' if skip else '',
         })
-    pywikibot.output('')
     return OrderedDict(sorted(res.items(), key=lambda x: LooseVersion(x[0])))
     
-def updateChampions(wikis):
-    pywikibot.output('\r\n\03{yellow}=====   CHAMPIONS   ============================================================\03{default}\r\n')
+def updateType(type, wikis):
+    pywikibot.output('\r\n\03{yellow}=====  %-10s   ============================================================\03{default}\r\n' % type.upper())
     
     wikisPerVersion = fliterWikis(wikis, 'champion')
+    func = supported_types[type]
     
     for version, list in wikisPerVersion.items():
-        if len(list) == 0: continue        
-        pywikibot.output('Version: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s\03{default}: %s' % (version, len(list), 'wiki' if len(list) == 1 else 'wikis', ', '.join(map(lambda x: x['lang'], list))))
+        if len(list) == 0: continue
+        pywikibot.output('\r\nVersion: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
+        func(list, version)
         
-
+    
+def updateChampions(wikis, version):
+    pywikibot.output('CHAMPIONS [%s] [%s]' % (version, ', '.join([x['lang'] for x in wikis])))
+    champs = getAPI().static_get_champion_list(version = str(version), champ_data = 'stats,tags,info')
+    
+    pprint(champs)
+    
+    
+    
 
 supported_types = OrderedDict([
     ('champions', updateChampions),
@@ -154,31 +180,37 @@ supported_types = OrderedDict([
 saveAll = False
 forceUpdate = False
 workOn = False
+versions = None
 
 def main():
-    global saveAll, forceUpdate, apikey, sinceVersion
+    global saveAll, forceUpdate, apikey, versions
     
     langs = None
     types = None
+    sinceVersion = None
     for arg in pywikibot.handleArgs():
         if   arg == '-always':               saveAll = True
         if   arg == '-force':                forceUpdate = True
         elif arg.startswith('-langs:'):      langs = arg[7:]
         elif arg.startswith('-key:'):        apikey = arg[5:]
-        elif arg.startswith('-since:'):      sinceVersion = arg[7:]
+        elif arg.startswith('-since:'):      sinceVersion = lolVersion(arg[7:])
         elif arg.startswith('-types:'):      types = arg[7:]
-    
     try:
-        wikis = getWikis(langs)
-        
+        # Validate -types:
         try:
             types = validateList(supported_types, types)
         except KeyError as e:
             pywikibot.output('\r\nError:  Type \'%s\' not supported. Valid types: %s' % (e.args[0], ', '.join(e.args[1])))
             raise GeneralQuit
         
+        # Validate -since:
+        if sinceVersion:
+            versions = [LooseVersion(x) for x in getAPI().static_get_versions()]
+            versions = [x for x in versions if x >= sinceVersion]
+            
+        wikis = getWikis(langs)
         for t in types:
-            supported_types[t](wikis)
+            updateType(t, wikis)
         
     except (GeneralQuit, pywikibot.bot.QuitKeyboardInterrupt, KeyboardInterrupt) as e:
         pywikibot.output('\r\n\03{lightaqua}Stopping open threads\03{default} - to force quit press Ctrl+C' + ' again' if type(e) is KeyboardInterrupt else '')
