@@ -8,7 +8,9 @@ def dumps(obj, depth=0):
         return '\'%s\'' % obj.replace('\'', '\\\'')
     if type(obj) is bool:
         return 'true' if obj else 'false'
-    if type(obj) is dict or type(obj) is OrderedDict:
+    if type(obj) is dict:
+        obj = OrderedDict(sorted(obj.items()))
+    if type(obj) is OrderedDict:
         ind1 = '    ' * depth
         ind2 = '    ' * (depth+1)
         res = []
@@ -29,7 +31,20 @@ def dumps(obj, depth=0):
             
         return u'{\n%s%s\n%s}' % (ind2, (',\n' + ind2).join(res), ind1)
     return 'nil'
-
-if __name__ == '__main__':
-    d = dumps({'array': [65, 23, 5], 'dict': {'mixed': {0: 43, 1: 54.33, 2: False, 4: None, 'string': 'value'}, 'array': [3, 6, 4], 'string': 'value'}})
-    print(d)
+    
+def ordered_dumps(obj, order):
+    ord = []
+    
+    for a in order:
+        try:
+            ord.append((a, obj[a]))
+        except KeyError:
+            pass
+    
+    for a in sorted([x for x in obj.keys() if x not in order]):
+        try:
+            ord.append((a, obj[a]))
+        except KeyError:
+            pass
+    
+    return dumps(OrderedDict(ord))
