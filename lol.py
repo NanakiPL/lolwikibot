@@ -7,8 +7,16 @@ from riotwatcher import RiotWatcher, LoLException
 from distutils.version import LooseVersion
 from collections import OrderedDict
 
-class GeneralQuit(Exception): pass
+# Supported types
+supported_types = [
+    'champions'
+]
 
+# Global switches
+saveAll = False
+forceUpdate = False
+
+class GeneralQuit(Exception): pass
 def getAPI():
     global api, apikey
     try:
@@ -49,6 +57,8 @@ def getRealm(region = 'na'):
     return getRealm.realms[region]
     
 def getWikis(langs = None):
+    from lua import commentify
+    
     codes = sorted(pywikibot.config.usernames[pywikibot.config.family].keys())
     try:
         codes.insert(0, codes.pop(codes.index(u'en')))
@@ -67,6 +77,7 @@ def getWikis(langs = None):
         wiki['site'] = site = pywikibot.Site(lang)
         wiki['lang'] = lang
         
+        
         try:
             wiki['region'] = site.mediawiki_message('custom-lolwikibot-region').strip().lower()
             if wiki['region'] == '': raise ValueError
@@ -80,6 +91,20 @@ def getWikis(langs = None):
         except (ValueError, KeyError):
             wiki['locale'] = getRealm(wiki['region'])['l']
             pywikibot.output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (site, wiki['locale']))
+        
+        try:
+            wiki['intro'] = site.mediawiki_message('custom-lolwikibot-module-intro').strip()
+            if wiki['intro'] == '': raise ValueError
+            wiki['intro'] = commentify(wiki['intro'])
+        except (ValueError, KeyError):
+            wiki['intro'] = None
+            
+        try:
+            wiki['outro'] = site.mediawiki_message('custom-lolwikibot-module-outro').strip()
+            if wiki['outro'] == '': raise ValueError
+            wiki['outro'] = commentify(wiki['outro'])
+        except (ValueError, KeyError):
+            wiki['outro'] = None
     return wikis
 
 def validateList(values, input = None):
@@ -107,6 +132,7 @@ def lolVersion(text):
     except AttributeError:
         raise ValueError('Bad version format')
     
+versions = None
 def fliterWikis(wikis, key):
     global versions
     
@@ -115,7 +141,7 @@ def fliterWikis(wikis, key):
         for v in versions:
             res[str(v)] = []
     
-    pywikibot.output('\03{lightyellow}Wiki          Region    Locale            Old  New\03{default}')
+    pywikibot.output('  \03{lightyellow}Wiki          Region    Locale            Old  New\03{default}')
     for lang, wiki in wikis.items():
         realm = getRealm(wiki['region'])
         new = LooseVersion(realm['n'][key])
@@ -137,7 +163,7 @@ def fliterWikis(wikis, key):
             skip = not forceUpdate and old >= new
             if not skip:
                 res[str(new)].append(wiki)
-        pywikibot.output('%(wiki)-10s    %(region)-6s    %(locale)-6s        %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
+        pywikibot.output('  %(wiki)-10s    %(region)-6s    %(locale)-6s        %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
             'wiki':    str(wiki['site']),
             'region':  wiki['region'],
             'locale':  wiki['locale'],
@@ -156,23 +182,18 @@ def updateType(type, wikis):
     import importlib
     module = importlib.import_module(type)
     
+    global saveAll
+    module.saveAll = saveAll
+    
     for version, list in wikisPerVersion.items():
         if len(list) == 0: continue
-        pywikibot.output('\r\nVersion: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
+        pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
         module.update(list, version, getAPI())
     print(version)
     # TODO: Update current version on wikis (mind region versions)
     
+    saveAll = module.saveAll
 
-supported_types = [
-    'champions'
-]
-
-# Global switches
-saveAll = False
-forceUpdate = False
-workOn = False
-versions = None
 
 def main():
     global saveAll, forceUpdate, apikey, versions
@@ -180,7 +201,7 @@ def main():
     langs = None
     types = None
     sinceVersion = None
-    for arg in pywikibot.handleArgs():
+    for arg in pywikibot.handle_args():
         if   arg == '-always':               saveAll = True
         if   arg == '-force':                forceUpdate = True
         elif arg.startswith('-langs:'):      langs = arg[7:]
@@ -197,8 +218,7 @@ def main():
         
         # Validate -since:
         if sinceVersion:
-            versions = [LooseVersion(x) for x in getAPI().static_get_versions()]
-            versions = [x for x in versions if x >= sinceVersion]
+            versions = [x for x in [LooseVersion(x) for x in getAPI().static_get_versions()] if x >= sinceVersion]
             
         wikis = getWikis(langs)
         for t in types:
