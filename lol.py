@@ -1,9 +1,7 @@
 # -*- coding: utf-8  -*-
 
-import pywikibot
-import re
+import pywikibot, re, api
 
-from riotwatcher import RiotWatcher, LoLException
 from distutils.version import LooseVersion
 from collections import OrderedDict
 
@@ -17,32 +15,6 @@ saveAll = False
 forceUpdate = False
 
 class GeneralQuit(Exception): pass
-def getAPI():
-    global api, apikey
-    try:
-        api = RiotWatcher(apikey)
-    except NameError:
-        pass
-    try:
-        return api
-    except NameError:
-        try:
-            f = open('key.txt')
-            key = f.read().strip()
-            if key == '': raise ValueError()
-        except (ValueError, IOError) as e:
-            if type(e) is ValueError or e.errno == 2:
-                pywikibot.output('Riot API key missing')
-            else:
-                pywikibot.output('Couldn\'t read key.txt')
-            key = pywikibot.input('Input your key')
-            try:
-                f = open('key.txt', 'w')
-                f.write(key)
-            except IOError:
-                pywikibot.output('Couldn\'t save the key in a file. Continuing regardless')
-        api = RiotWatcher(key)
-    return api
     
 def getRealm(region = 'na'):
     region = str(region).lower()
@@ -53,7 +25,7 @@ def getRealm(region = 'na'):
     try:
         return getRealm.realms[region]
     except KeyError:
-        getRealm.realms[region] = getAPI().static_get_realm(region = region)
+        getRealm.realms[region] = api.call('static_get_realm', region = region)
     return getRealm.realms[region]
     
 def getWikis(langs = None):
@@ -188,7 +160,7 @@ def updateType(type, wikis):
     for version, list in wikisPerVersion.items():
         if len(list) == 0: continue
         pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
-        module.update(list, version, getAPI())
+        module.update(list, version)
     print(version)
     # TODO: Update current version on wikis (mind region versions)
     
@@ -196,7 +168,7 @@ def updateType(type, wikis):
 
 
 def main():
-    global saveAll, forceUpdate, apikey, versions
+    global saveAll, forceUpdate, versions
     
     langs = None
     types = None
@@ -205,7 +177,7 @@ def main():
         if   arg == '-always':               saveAll = True
         if   arg == '-force':                forceUpdate = True
         elif arg.startswith('-langs:'):      langs = arg[7:]
-        elif arg.startswith('-key:'):        apikey = arg[5:]
+        elif arg.startswith('-key:'):        api.setKey(arg[5:])
         elif arg.startswith('-since:'):      sinceVersion = lolVersion(arg[7:])
         elif arg.startswith('-types:'):      types = arg[7:]
     try:
@@ -218,7 +190,7 @@ def main():
         
         # Validate -since:
         if sinceVersion:
-            versions = [x for x in [LooseVersion(x) for x in getAPI().static_get_versions()] if x >= sinceVersion]
+            versions = [x for x in [LooseVersion(x) for x in api.call('static_get_versions')] if x >= sinceVersion]
             
         wikis = getWikis(langs)
         for t in types:

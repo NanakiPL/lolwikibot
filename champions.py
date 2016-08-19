@@ -1,5 +1,5 @@
 # -*- coding: utf-8  -*-
-import pywikibot, re, lua
+import pywikibot, re, api, lua
 from collections import OrderedDict
 
 # i18n
@@ -42,7 +42,7 @@ def universalData(version):
     version = str(version)
     res = {}
     
-    champs = api.static_get_champion_list(version = str(version), champ_data = 'stats,tags,info')['data']
+    champs = api.call('static_get_champion_list', version = str(version), champ_data = 'stats,tags,info')['data']
     for key, champ in champs.items():
         res[key] = s = {}
         s['id'] = champ['id']
@@ -64,7 +64,7 @@ def localeData(version, locales, universal):
         res[locale] = {}
         addEn = re.match('^en', locale) == None
         
-        champs = api.static_get_champion_list(version = str(version), locale = locale)['data']
+        champs = api.call('static_get_champion_list', version = str(version), locale = locale)['data']
         for key, champ in champs.items():
             res[locale][key] = {}
             res[locale][key]['name'] = champ['name']
@@ -163,9 +163,7 @@ def updateChampions(wikis, locales, universal):
             savePage(page, champ, locales[locale][key], intro = wiki['intro'], outro = wiki['outro'])
             
             
-def update(wikis, version, _api):
-    global api
-    api = _api
+def update(wikis, version):
     
     for wiki in wikis:
         page = pywikibot.Page(wiki['site'], u'Champion', ns=828)
@@ -183,7 +181,6 @@ def update(wikis, version, _api):
     
 # For testing purposes:
 if __name__ == '__main__':
-    from lol import getAPI, getWikis
+    from lol import getWikis
     pywikibot.config.simulate = saveAll = True
-    pywikibot.config.simulate = saveAll = False
-    update(getWikis().values(), '6.16.1', getAPI())
+    update(getWikis().values(), '6.16.1')
