@@ -57,7 +57,6 @@ def commentify(text):
     
     lines = text.split('\n')
     for i, line in enumerate(lines):
-        if not re.match('\s*--', line):
+        if not re.match('\s*--', line) and not re.match('\s*$', line):
             lines[i] = '-- %s' % line
-    
-    return '\n'.join(lines)
+    return '\n'.join(lines).strip()
