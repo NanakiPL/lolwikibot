@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"champions-create-summary": "Robot dodaje dane bohatera – [[v%(short)s|%(full)s]]",
+	"champions-update-summary": "Robot aktualizuje dane bohatera do wersji [[v%(short)s|%(full)s]]"
+}

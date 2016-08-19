@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"champions-create-summary": "Edit summary when creating a data module. Parameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"champions-update-summary": "Edit summary when updating a data module. Parameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)"
+}

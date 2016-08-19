@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"champions-create-summary": "Bot: Adding champion data - [[v%(short)s|%(full)s]]",
+	"champions-update-summary": "Bot: Updating champion data to version [[v%(short)s|%(full)s]]"
+}
