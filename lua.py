@@ -48,3 +48,16 @@ def ordered_dumps(obj, order):
             pass
     
     return dumps(OrderedDict(ord))
+    
+def commentify(text):
+    import re
+    # DPL-like escapes for double brackets
+    text = text.replace(u'²[', u'[[')
+    text = text.replace(u']²', u']]')
+    
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if not re.match('\s*--', line):
+            lines[i] = '-- %s' % line
+    
+    return '\n'.join(lines)
