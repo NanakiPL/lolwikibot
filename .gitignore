@@ -1,4 +1,5 @@
 throttle.ctrl
+pywikibot.lwp
 user-*.py
 key.txt
 *.bak
