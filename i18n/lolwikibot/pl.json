@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"lolwikibot-protect-summary": "Robot zabezpiecza moduł z danymi",
+	"lolwikibot-version-summary": "Robot aktualizuje informację o obecnej wersji danych"
+}

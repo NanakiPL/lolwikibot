@@ -9,6 +9,9 @@ set_messages_package('i18n')
 #
 from pprint import pprint
 
+# Properties
+type = 'champion'
+
 # Global switches
 saveAll = False
 
@@ -102,7 +105,7 @@ def compare(old, new):
     
 def savePage(page, champ, locale, intro = None, outro = None):
     global saveAll
-    pywikibot.output(u'  \03{aqua}%s\03{default}' % page)
+    pywikibot.output(u'\n\n>>> \03{lightpurple}%s\03{default} <<<' % page)
     
     match = re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', champ['update'])
     
@@ -152,8 +155,7 @@ def savePage(page, champ, locale, intro = None, outro = None):
     pywikibot.output('')
     
 def updateChampions(wikis, locales, universal):
-    for key, champ in sorted(universal.items(), key=lambda x: x[1]['name']):
-        pywikibot.output(u'\03{lightpurple}%s\03{default}' % champ['name'])
+    for key, champ in sorted(universal.items(), key=lambda x: x[1]['name'])[10:11]:
         for wiki in wikis:
             site = wiki['site']
             locale = wiki['locale']
@@ -177,7 +179,6 @@ def update(wikis, version):
     locales = localeData(version, [x['locale'] for x in wikis], universal)
     
     updateChampions(wikis, locales, universal)
-
     
 # For testing purposes:
 if __name__ == '__main__':

@@ -5,6 +5,10 @@ import pywikibot, re, api
 from distutils.version import LooseVersion
 from collections import OrderedDict
 
+# i18n
+from pywikibot.i18n import twtranslate, set_messages_package
+set_messages_package('i18n')
+
 # Supported types
 supported_types = [
     'champions'
@@ -48,7 +52,7 @@ def getWikis(langs = None):
         
         wiki['site'] = site = pywikibot.Site(lang)
         wiki['lang'] = lang
-        
+        wiki['version'] = {}
         
         try:
             wiki['region'] = site.mediawiki_message('custom-lolwikibot-region').strip().lower()
@@ -123,7 +127,6 @@ def fliterWikis(wikis, key):
             old = lolVersion(old)
         except ValueError:
             old = None
-            old = lolVersion('6.5.1')
         
         if versions:
             skip = False
@@ -132,7 +135,7 @@ def fliterWikis(wikis, key):
                     res[str(v)].append(wiki)
         else:
             global forceUpdate
-            skip = not forceUpdate and old >= new
+            skip = not forceUpdate and old and old >= new
             if not skip:
                 res[str(new)].append(wiki)
         pywikibot.output('  %(wiki)-10s    %(region)-6s    %(locale)-6s        %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
@@ -146,13 +149,40 @@ def fliterWikis(wikis, key):
         })
     return OrderedDict(sorted(res.items(), key=lambda x: LooseVersion(x[0])))
     
+def saveVersion(site, type, version):
+    global saveAll
+    page = pywikibot.Page(site, u'lolwikibot/%s' % type, ns=828)
+    pywikibot.output(u'\n\n>>> \03{lightpurple}%s\03{default} <<<' % page)
+    
+    try:
+        old_text = page.get()
+    except pywikibot.exceptions.NoPage:
+        old_text = ''
+        
+    new_text = 'return {\'%s\'}' % version
+    
+    if new_text != old_text:
+        pywikibot.showDiff(old_text, new_text)
+        summary = twtranslate(site, 'lolwikibot-version-summary')
+        pywikibot.output(u'\03{lightyellow}Summary:\03{default} %s' % summary)
+        
+        if saveAll == False:
+            choice = pywikibot.input_choice(u'Do you want to accept these changes?', [('Yes', 'y'), ('No', 'n'), ('All', 'a')], 'n')
+        else:
+            choice = 'a'
+        if choice == 'a': saveAll = True
+        if choice == 'y' or choice == 'a':
+            page.put(new_text, summary = summary)
+    
+    
+    
 def updateType(type, wikis):
     pywikibot.output('\r\n\03{yellow}=====  %-10s   ============================================================\03{default}\r\n' % type.upper())
     
-    wikisPerVersion = fliterWikis(wikis, 'champion')
+    from importlib import import_module
+    module = import_module(type)
     
-    import importlib
-    module = importlib.import_module(type)
+    wikisPerVersion = fliterWikis(wikis, module.type)
     
     global saveAll
     module.saveAll = saveAll
@@ -161,11 +191,15 @@ def updateType(type, wikis):
         if len(list) == 0: continue
         pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}      working on \03{lightaqua}%d %s %s' % (version, len(list), 'wiki\03{default}: ' if len(list) == 1 else 'wikis\03{default}:', ', '.join([x['lang'] for x in list])))
         module.update(list, version)
-    print(version)
-    # TODO: Update current version on wikis (mind region versions)
-    
+        for wiki in list:
+            wiki['version'][module.type] = version
     saveAll = module.saveAll
-
+    
+    for lang, wiki in wikis.items():
+        try:
+            saveVersion(wiki['site'], module.type, wiki['version'][module.type])
+        except KeyError:
+            pass
 
 def main():
     global saveAll, forceUpdate, versions
@@ -175,6 +209,7 @@ def main():
     sinceVersion = None
     for arg in pywikibot.handle_args():
         if   arg == '-always':               saveAll = True
+        if   arg == '-dryrun':               pywikibot.config.simulate = True
         if   arg == '-force':                forceUpdate = True
         elif arg.startswith('-langs:'):      langs = arg[7:]
         elif arg.startswith('-key:'):        api.setKey(arg[5:])
