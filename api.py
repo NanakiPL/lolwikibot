@@ -50,6 +50,15 @@ def call(method, *args, **kargs):
             pywikibot.output('API not responding \'%s\'. Retrying in %d seconds' % (e.error, delay))
             sleep(delay)
 
+def realm(region = 'na'):
+    try:
+        return realm.cache[region]
+    except KeyError:
+        realm.cache[region] = call('static_get_realm', region = region)
+        
+    return realm.cache[region]
+realm.cache = {}
+
 if __name__ == '__main__':
     try:
         output('Current key: \03{lightyellow}%s\03{default}' % readKey())
@@ -61,7 +70,7 @@ if __name__ == '__main__':
         setKey(key)
     
     try:
-        call('static_get_realm')
+        realm()
         output('\03{lightgreen}Good to go\03{default}')
     except:
         output('\03{lightred}API doesn\'t cooperate - check your key\03{default}')
