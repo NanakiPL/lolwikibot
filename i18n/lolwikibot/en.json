@@ -6,5 +6,6 @@
 	},
     
 	"lolwikibot-protect-summary": "Bot: Protecting data module",
-	"lolwikibot-version-summary": "Bot: Updating current data version info"
+	"lolwikibot-version-summary": "Bot: Updating current data version info",
+	"lolwikibot-commentsonly-summary": "Bot: Updating comments, data unchanged"
 }

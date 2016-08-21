@@ -6,5 +6,6 @@
 	},
     
 	"lolwikibot-protect-summary": "Summary used when protecting a data module.",
-	"lolwikibot-vertion-summary": "Summary used when updating a module with data version."
+	"lolwikibot-vertion-summary": "Summary used when updating a module with data version.",
+	"lolwikibot-commentsonly-summary": "Summary used when updating a module with unchanged data."
 }

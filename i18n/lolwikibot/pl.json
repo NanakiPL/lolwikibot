@@ -6,5 +6,6 @@
 	},
     
 	"lolwikibot-protect-summary": "Robot zabezpiecza moduł z danymi",
-	"lolwikibot-version-summary": "Robot aktualizuje informację o obecnej wersji danych"
+	"lolwikibot-version-summary": "Robot aktualizuje informację o obecnej wersji danych",
+	"lolwikibot-commentsonly-summary": "Robot aktualizuje komentarze, dane bez zmian"
 }

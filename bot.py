@@ -1,45 +1,136 @@
 # -*- coding: utf-8  -*-
-import pywikibot, re, api
-from pywikibot import bot, config
+import pywikibot, re, api, lua
+from pywikibot import config, output
+from pywikibot.bot import Bot
 from pywikibot.exceptions import UserBlocked, UserRightsError, NoPage, IsNotRedirectPage, LockedPage
 
-from distutils.version import LooseVersion
+# i18n
+from pywikibot.i18n import twtranslate, set_messages_package
+set_messages_package('i18n')
 
-class Bot(bot.Bot):
+# Other
+from distutils.version import StrictVersion
+from importlib import import_module
+
+            
+def getTypeModule(type):
+    return import_module(type)
+
+class Bot(Bot):
     family = None
     wikis = {}
     
     options = {
         'always': False,
     }
+    types = [
+        'champions',
+        'items',
+        'masteries',
+        'runes',
+        'spells',
+    ]
+    _save_counter = 0
     
     def __init__(self, family):
+        global bot
+        bot = self
+        
+        langs = None
+        types = None
+        sinceVersion = None
+        
+        for arg in pywikibot.handle_args():
+            if   arg == '-always':               self.setOptions(always = True)
+            elif arg == '-dryrun':               pywikibot.config.simulate = True
+            elif arg.startswith('-langs:'):      langs = arg[7:].split(',')
+            elif arg.startswith('-key:'):        api.setKey(arg[5:])
+            elif arg.startswith('-since:'):      sinceVersion = StrictVersion(arg[7:])
+            elif arg.startswith('-types:'):      types = arg[7:].split(',')
+        
         self.family = pywikibot.family.Family.load(family)
         config.family = family = self.family.name
         config.mylang = None
         
-        langs = self.family.langs.keys()
-        langs = sorted([x for x in config.usernames[family].keys() if x in langs])
+        self.langs = self.family.langs.keys()
+        self.langs = sorted([x for x in config.usernames[family].keys() if x in self.langs])
         try:
-            langs.insert(0, langs.pop(langs.index(u'en')))
+            self.langs.insert(0, self.langs.pop(self.langs.index(u'en')))
         except ValueError:
             pass
+        if langs: self.langs = sorted([x for x in langs if x in self.langs])
         
-        for lang in langs:
+        for lang in self.langs:
             self.wikis[lang] = wiki = pywikibot.Site(lang, family)
             wiki.__class__ = Wiki
             wiki.reInit()
             
-            print('')
-            print(lang)
-            print(wiki)
+        if types: self.types = sorted([x for x in types if x in Bot.types])
+        types = []
+        for type in self.types:
+            try:
+                m = getTypeModule(type)
+                if hasattr(m, 'update') and hasattr(m, 'type'):
+                    types.append(m)
+            except ImportError:
+                pass
+        self.types = types
+        
+    @property
+    def current_page(self):
+        return self._current_page
+    @current_page.setter
+    def current_page(self, page):
+        if page != self._current_page:
+            self._current_page = page
+            output(u'\n\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
+                       % (page.site.lang, page.title()))
+    
+    def compareModules(self, oldtext, newtext):
+        if oldtext == newtext:
+            return False # Nothing changed - don't do anything
             
-            print(wiki.getVersion('champion'))
-        print(self.wikis)
+        newtext_i = lua.decomment(newtext).strip()
+        oldtext_i = lua.decomment(oldtext).strip()
+        
+        if oldtext_i == newtext_i:
+            return newtext # Only comments changed - update with different summary
+        
+        p = re.compile('([\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\')([0-9]+\.[0-9]+\.[0-9]+)(\'\s*[,\}])')
+        match = p.search(oldtext_i)
+        if match:
+            oldtext_i = p.sub(ur'\1\3', oldtext_i)
+            newtext_i = p.sub(ur'\1\3', newtext_i)
+            
+            if oldtext_i == newtext_i:
+                newnewtext = p.sub(lambda x: '%s%s%s' % (x.group(1), match.group(2), x.group(3)), newtext)
+                if oldtext == newnewtext:
+                    return False # Version changed. Data and comments same - don't do anything
+                return newnewtext # Version and coments changed - update only comments with different summary and keep old version
+        return True # Data different - update with regular summary
+            
+            
+    def saveModule(self, page, newtext, **kwargs):
+        self.current_page = page
+        
+        oldtext = ''
+        try:
+            oldtext = page.get()
+            res = self.compareModules(oldtext, newtext)
+            if res and res != True:
+                return bot.userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
+            elif res == False:
+                return output(u'No changes were needed on s%s' % page.title(asLink=True))
+        except NoPage:
+            pass
+        bot.userPut(page, oldtext, newtext, summary = kwargs['summary'])
+        
+        #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
 
 realms = {}
 
 class Wiki(pywikibot.site.APISite):
+    versionModule = 'Module:Lolwikibot/%s'
     def reInit(self):
         self.region = None
         self.locale = None
@@ -50,7 +141,7 @@ class Wiki(pywikibot.site.APISite):
             self.region = self.mediawiki_message('custom-lolwikibot-region').strip().lower()
             if self.region == '': raise ValueError
         except (ValueError, KeyError):
-            pywikibot.output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a region specified - assuming NA' % self)
+            output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a region specified - assuming NA' % self)
             self.region = 'na'
         
         try:
@@ -61,18 +152,30 @@ class Wiki(pywikibot.site.APISite):
             self.locale = '%s_%s' % (match.group(1), match.group(2).upper())
         except (ValueError, KeyError):
             self.locale = api.realm(self.region)['l']
-            pywikibot.output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (self, self.locale))
-    
+            output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (self, self.locale))
+        
     def getVersion(self, type):
         if type not in self.versions:
             try:
-                match = re.search('^\s*return\s*\{\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*\}', pywikibot.Page(self, 'Module:Lolwikibot/%s' % type).get())
-                self.versions[type] = LooseVersion(match.group(1))
+                match = re.search('^\s*return\s*\{\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*\}', pywikibot.Page(self, self.versionModule % type).get())
+                self.versions[type] = StrictVersion(match.group(1))
             except NoPage, AttributeError:
                 self.versions[type] = None
         return self.versions[type]
-    
-    def moduleComments(self, type = ''):
+        
+    def saveVersion(self, type, version):
+        version = StrictVersion(str(version))
+        intro, outro = self.moduleComments('version', False)
+        
+        page = pywikibot.Page(self, self.versionModule % type)
+        newtext = ('%s\n\nreturn {\'%s\'}\n\n%s' % (intro, version, outro)).strip()
+        oldtext = page.text
+        
+        summary = twtranslate(self, 'lolwikibot-version-summary')
+        
+        bot.saveModule(page, newtext, summary = summary)
+        
+    def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
             from lua import commentify
             
@@ -88,11 +191,11 @@ class Wiki(pywikibot.site.APISite):
                     outro = commentify(outro)
                 except KeyError:
                     outro = None
-                if intro == None or outro == None:
+                if fallback and (intro == None or outro == None):
                     i, o = self.moduleComments()
                     intro = i if intro == None else intro
                     outro = o if outro == None else outro
-                self.comments[type] = (intro, outro)
+                self.comments[type] = (intro or '', outro or '')
                 return self.comments[type]
             
             # Default
@@ -110,7 +213,7 @@ class Wiki(pywikibot.site.APISite):
         return self.comments[type]
         
         
-bot = Bot('lol')
+Bot('lol')
     
 if __name__ == '__main__':
     pass
