@@ -75,6 +75,24 @@ class Bot(Bot):
                 pass
         self.types = types
     
+    def printTable(self, type):
+        output('\03{lightyellow}  Wiki    Region    Locale        Old  New\03{default}')
+        for lang in self.langs:
+            wiki = self.wikis[lang]
+            
+            old = wiki.getVersion(type)
+            new = wiki.getRealm()['n'][type]
+            
+            output('  \03{lightaqua}%(wiki)-4s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
+                'wiki':    wiki.lang,
+                'region':  wiki.region,
+                'locale':  wiki.locale,
+                'old':     old,
+                'new':     new,
+                'color':   '\03{lightred}' if wiki.needsUpdateTo(type, new) else '\03{lightgreen}',
+                'action':  '' if wiki.needsUpdateTo(type, new) else 'SKIP'
+            })
+        
     def getWorkList(self, type):
         res = {}
         if self.sinceVersion:
@@ -92,13 +110,23 @@ class Bot(Bot):
                 if v not in res: res[v] = []
                 if wiki.needsUpdateTo(type, v):
                     res[v].append(wiki)
-        return [x for x in sorted(res.items(), key = lambda x: StrictVersion(x[0])) if len(x[1]) > 0]
+        return sorted([x for x in res.items() if len(x[1]) > 0], key = lambda x: StrictVersion(x[0]))
     
     def run(self):
+        if len(self.langs) == 0:
+            output('Error: No valid languages to work on')
+            self.quit()
+        if len(self.types) == 0:
+            output('Error: No valid types to work on')
+            self.quit()
         for type in self.types:
-            list = self.getWorkList(type.type)
             print(type)
-        pass
+            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (type.__name__.upper(), '='*(43-len(type.__name__))))
+            self.printTable(type.type)
+            output('\r\n\03{yellow}%s\03{default}' % ('='*(53)))
+            for version, list in self.getWorkList(type.type):
+                pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
+                type.update(list, version)
         
     @property
     def current_page(self):
@@ -149,6 +177,7 @@ class Bot(Bot):
             pass
         bot.userPut(page, oldtext, newtext, summary = kwargs['summary'])
         
+        #TODO: need to return if the save was made
         #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
 
 realms = {}
@@ -206,8 +235,8 @@ class Wiki(pywikibot.site.APISite):
         
         summary = twtranslate(self, 'lolwikibot-version-summary')
         
-        bot.saveModule(page, newtext, summary = summary)
-        self.versions[type] = version
+        if bot.saveModule(page, newtext, summary = summary):
+            self.versions[type] = version
         
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
