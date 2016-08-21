@@ -49,6 +49,12 @@ def ordered_dumps(obj, order):
     
     return dumps(OrderedDict(ord))
     
+def decomment(text):
+    from re import sub, M
+    text = sub('(?<!\-)--\[\[.*?\]\]', '', text, flags=M) # remove comment blocks
+    text = sub('^\s*--.*?(\n|$)', '', text, flags=M) # remove comments
+    return text
+    
 def commentify(text):
     import re
     # DPL-like escapes for double brackets
