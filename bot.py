@@ -12,7 +12,6 @@ set_messages_package('i18n')
 from distutils.version import StrictVersion
 from importlib import import_module
 
-            
 def getTypeModule(type):
     return import_module(type)
 
@@ -38,14 +37,14 @@ class Bot(Bot):
         
         langs = None
         types = None
-        sinceVersion = None
+        self.sinceVersion = None
         
         for arg in pywikibot.handle_args():
             if   arg == '-always':               self.setOptions(always = True)
             elif arg == '-dryrun':               pywikibot.config.simulate = True
             elif arg.startswith('-langs:'):      langs = arg[7:].split(',')
             elif arg.startswith('-key:'):        api.setKey(arg[5:])
-            elif arg.startswith('-since:'):      sinceVersion = StrictVersion(arg[7:])
+            elif arg.startswith('-since:'):      self.sinceVersion = StrictVersion(arg[7:])
             elif arg.startswith('-types:'):      types = arg[7:].split(',')
         
         self.family = pywikibot.family.Family.load(family)
@@ -58,7 +57,7 @@ class Bot(Bot):
             self.langs.insert(0, self.langs.pop(self.langs.index(u'en')))
         except ValueError:
             pass
-        if langs: self.langs = sorted([x for x in langs if x in self.langs])
+        if langs: self.langs = [x for x in langs if x in self.langs]
         
         for lang in self.langs:
             self.wikis[lang] = wiki = pywikibot.Site(lang, family)
@@ -75,6 +74,31 @@ class Bot(Bot):
             except ImportError:
                 pass
         self.types = types
+    
+    def getWorkList(self, type):
+        res = {}
+        if self.sinceVersion:
+            versions = [x for x in api.call('static_get_versions') if StrictVersion(x) >= self.sinceVersion]
+            for v in versions:
+                if v not in res: res[v] = []
+                for lang in self.langs:
+                    wiki = self.wikis[lang]
+                    if wiki.needsUpdateTo(type, v):
+                        res[v].append(wiki)
+        else:
+            for lang in self.langs:
+                wiki = self.wikis[lang]
+                v = wiki.getRealm()['n'][type]
+                if v not in res: res[v] = []
+                if wiki.needsUpdateTo(type, v):
+                    res[v].append(wiki)
+        return [x for x in sorted(res.items(), key = lambda x: StrictVersion(x[0])) if len(x[1]) > 0]
+    
+    def run(self):
+        for type in self.types:
+            list = self.getWorkList(type.type)
+            print(type)
+        pass
         
     @property
     def current_page(self):
@@ -151,15 +175,24 @@ class Wiki(pywikibot.site.APISite):
             if not match: raise ValueError('malformed')
             self.locale = '%s_%s' % (match.group(1), match.group(2).upper())
         except (ValueError, KeyError):
-            self.locale = api.realm(self.region)['l']
+            self.locale = self.getRealm()['l']
             output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (self, self.locale))
-        
+    
+    def getRealm(self):
+        return api.realm(self.region)
+    
+    def needsUpdateTo(self, type, version):
+        if not isinstance(version, StrictVersion):
+            version = StrictVersion(version)
+        old = self.getVersion(type)
+        return not old or old < version
+    
     def getVersion(self, type):
         if type not in self.versions:
             try:
                 match = re.search('^\s*return\s*\{\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*\}', pywikibot.Page(self, self.versionModule % type).get())
                 self.versions[type] = StrictVersion(match.group(1))
-            except NoPage, AttributeError:
+            except (NoPage, AttributeError):
                 self.versions[type] = None
         return self.versions[type]
         
@@ -174,6 +207,7 @@ class Wiki(pywikibot.site.APISite):
         summary = twtranslate(self, 'lolwikibot-version-summary')
         
         bot.saveModule(page, newtext, summary = summary)
+        self.versions[type] = version
         
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
@@ -216,4 +250,5 @@ class Wiki(pywikibot.site.APISite):
 Bot('lol')
     
 if __name__ == '__main__':
+    bot.run()
     pass
