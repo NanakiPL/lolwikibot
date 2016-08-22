@@ -4,7 +4,7 @@ from collections import OrderedDict
 def dumps(obj, depth=0):
     if type(obj) is int or type(obj) is float:
         return '%g' % round(obj, 5)
-    if type(obj) is str or type(obj) is unicode:
+    if isinstance(obj, basestring):
         return '\'%s\'' % obj.replace('\'', '\\\'')
     if type(obj) is bool:
         return 'true' if obj else 'false'
