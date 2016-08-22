@@ -32,9 +32,7 @@ class Bot(Bot):
     _save_counter = 0
     
     def __init__(self, family):
-        global bot
-        bot = self
-        
+        pywikibot.config.family = family
         langs = None
         types = None
         self.sinceVersion = None
@@ -76,14 +74,14 @@ class Bot(Bot):
         self.types = types
     
     def printTable(self, type):
-        output('\03{lightyellow}  Wiki    Region    Locale        Old  New\03{default}')
+        output('\03{lightyellow}  Wiki     Region    Locale        Old  New\03{default}')
         for lang in self.langs:
             wiki = self.wikis[lang]
             
             old = wiki.getVersion(type)
             new = wiki.getRealm()['n'][type]
             
-            output('  \03{lightaqua}%(wiki)-4s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
+            output('  \03{lightaqua}%(wiki)-5s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
                 'wiki':    wiki.lang,
                 'region':  wiki.region,
                 'locale':  wiki.locale,
@@ -137,53 +135,12 @@ class Bot(Bot):
             self._current_page = page
             output(u'\n\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
                        % (page.site.lang, page.title()))
-    
-    def compareModules(self, oldtext, newtext):
-        if oldtext == newtext:
-            return False # Nothing changed - don't do anything
-            
-        newtext_i = lua.decomment(newtext).strip()
-        oldtext_i = lua.decomment(oldtext).strip()
-        
-        if oldtext_i == newtext_i:
-            return newtext # Only comments changed - update with different summary
-        
-        p = re.compile('([\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\')([0-9]+\.[0-9]+\.[0-9]+)(\'\s*[,\}])')
-        match = p.search(oldtext_i)
-        if match:
-            oldtext_i = p.sub(ur'\1\3', oldtext_i)
-            newtext_i = p.sub(ur'\1\3', newtext_i)
-            
-            if oldtext_i == newtext_i:
-                newnewtext = p.sub(lambda x: '%s%s%s' % (x.group(1), match.group(2), x.group(3)), newtext)
-                if oldtext == newnewtext:
-                    return False # Version changed. Data and comments same - don't do anything
-                return newnewtext # Version and coments changed - update only comments with different summary and keep old version
-        return True # Data different - update with regular summary
-            
-            
-    def saveModule(self, page, newtext, **kwargs):
-        self.current_page = page
-        
-        oldtext = ''
-        try:
-            oldtext = page.get()
-            res = self.compareModules(oldtext, newtext)
-            if res and res != True:
-                return bot.userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
-            elif res == False:
-                return output(u'No changes were needed on s%s' % page.title(asLink=True))
-        except NoPage:
-            pass
-        bot.userPut(page, oldtext, newtext, summary = kwargs['summary'])
-        
-        #TODO: need to return if the save was made
-        #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
 
 realms = {}
 
 class Wiki(pywikibot.site.APISite):
     versionModule = 'Module:Lolwikibot/%s'
+    
     def reInit(self):
         self.region = None
         self.locale = None
@@ -224,7 +181,7 @@ class Wiki(pywikibot.site.APISite):
             except (NoPage, AttributeError):
                 self.versions[type] = None
         return self.versions[type]
-        
+    
     def saveVersion(self, type, version):
         version = StrictVersion(str(version))
         intro, outro = self.moduleComments('version', False)
@@ -235,9 +192,50 @@ class Wiki(pywikibot.site.APISite):
         
         summary = twtranslate(self, 'lolwikibot-version-summary')
         
-        if bot.saveModule(page, newtext, summary = summary):
+        if self.saveModule(page, newtext, summary = summary):
             self.versions[type] = version
+    
+    def compareModules(self, oldtext, newtext):
+        if oldtext == newtext:
+            return False # Nothing changed - don't do anything
+            
+        newtext_i = lua.decomment(newtext).strip()
+        oldtext_i = lua.decomment(oldtext).strip()
         
+        if oldtext_i == newtext_i:
+            return newtext # Only comments changed - update with different summary
+        
+        p = re.compile('([\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\')([0-9]+\.[0-9]+\.[0-9]+)(\'\s*[,\}])')
+        match = p.search(oldtext_i)
+        if match:
+            oldtext_i = p.sub(ur'\1\3', oldtext_i)
+            newtext_i = p.sub(ur'\1\3', newtext_i)
+            
+            if oldtext_i == newtext_i:
+                newnewtext = p.sub(lambda x: '%s%s%s' % (x.group(1), match.group(2), x.group(3)), newtext)
+                if oldtext == newnewtext:
+                    return False # Version changed. Data and comments same - don't do anything
+                return newnewtext # Version and coments changed - update only comments with different summary and keep old version
+        return True # Data different - update with regular summary
+    
+    def saveModule(self, page, newtext, **kwargs):
+        self.current_page = page
+        
+        oldtext = ''
+        try:
+            oldtext = page.get()
+            res = self.compareModules(oldtext, newtext)
+            if res and res != True:
+                return self.userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
+            elif res == False:
+                return output(u'No changes were needed on s%s' % page.title(asLink=True))
+        except NoPage:
+            pass
+        self.userPut(page, oldtext, newtext, summary = kwargs['summary'])
+        
+        #TODO: need to return if the save was made
+        #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
+    
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
             from lua import commentify
@@ -274,10 +272,7 @@ class Wiki(pywikibot.site.APISite):
                 outro = ''
             self.comments[''] = (intro, outro)
         return self.comments[type]
-        
-        
-Bot('lol')
-    
+
 if __name__ == '__main__':
-    bot.run()
+    Bot('lol').run()
     pass
