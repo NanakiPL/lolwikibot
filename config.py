@@ -63,12 +63,12 @@ def main():
     
     if not getConfig(): cfg = None
     
-    output('\r\n  \03{yellow}+------------------------------+\03{default}')
-    output('  \03{yellow}|  \03{lightyellow}Pywikibot config generator  \03{yellow}|\03{default}')
-    output('  \03{yellow}+------------------------------+\03{default}\r\n')
+    output('\r\n\03{yellow}+------------------------------+\03{default}')
+    output('\03{yellow}|  \03{lightyellow}Pywikibot config generator  \03{yellow}|\03{default}')
+    output('\03{yellow}+------------------------------+\03{default}\r\n')
     
     if not cfg:
-        output('  Your user-config.py file is missing. Follow these steps to create it\r\n\r\n')
+        output('Your user-config.py file is missing. Follow these steps to create it\r\n\r\n')
     
     output('\r\n> \03{lightyellow}Step 1\03{default}: Username')
     output('  Which account do you want to be used for bot edits\r\n')
@@ -144,13 +144,13 @@ def main():
         elif wiki['site'].code in langs:
             wiki['usebot'] = True
     
-    output('\r\n> \03{lightyellow}Step 2\03{default}: Sysop accounts')
+    output('\r\n> \03{lightyellow}Step 3\03{default}: Sysop accounts')
     output('  Some actions like protecting pages may require a sysop account.')
     output('  These actions will be skipped when there is no sysop account available.\r\n')
     
     for wiki in wikis:
         if not wiki['usebot']: continue
-        output('\03{lightaqua}%s  http://%s\03{default}' % (wiki['site'].code, wiki['url']))
+        output('\r\n\03{lightaqua}%s  http://%s\03{default}' % (wiki['site'].code, wiki['url']))
         answers = []
         default = None
         
@@ -164,7 +164,7 @@ def main():
             pass
         
         if wiki['isSysop']:
-            output('Your bot \03{lightgreen}has sysop rights\03{default} here.')
+            output('Your bot \03{lightgreen}has sysop rights\03{default} here')
             answers.append(('Use bot', 'b'))
             default = default or 'b'
             
