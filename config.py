@@ -51,7 +51,7 @@ def getConfig():
         return True
     return False
 
-def main():
+def main(force = False):
     os.environ['PYWIKIBOT2_NO_USER_CONFIG'] = '1'
     import pywikibot
     from pywikibot import output, input, input_choice, Site
@@ -193,7 +193,7 @@ def main():
         
     output('')
     output('')
-    if input_choice('Do you want to save new config?', [('Yes', 'y'), ('No', 'n')], 'y', automatic_quit = False) == 'y':
+    if force or input_choice('Do you want to save new config?', [('Yes', 'y'), ('No', 'n')], 'y', automatic_quit = False) == 'y':
         saveConfig(wikis)
     
 if __name__ == '__main__':
