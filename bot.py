@@ -15,6 +15,15 @@ from importlib import import_module
 def getTypeModule(type):
     return import_module(type)
 
+_instance = None
+def bot():
+    global _instance
+    if not _instance:
+        import family
+        _instance = Bot(family.Family.name)
+    return _instance
+    
+
 class Bot(Bot):
     family = None
     wikis = {}
@@ -118,7 +127,6 @@ class Bot(Bot):
             output('Error: No valid types to work on')
             self.quit()
         for type in self.types:
-            print(type)
             output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (type.__name__.upper(), '='*(43-len(type.__name__))))
             self.printTable(type.type)
             output('\r\n\03{yellow}%s\03{default}' % ('='*(53)))
