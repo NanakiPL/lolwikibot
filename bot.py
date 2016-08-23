@@ -154,6 +154,7 @@ class Wiki(pywikibot.site.APISite):
         self.locale = None
         self.comments = {}
         self.versions = {}
+        self.other = {}
         
         try:
             self.region = self.mediawiki_message('custom-lolwikibot-region').strip().lower()
