@@ -1,28 +1,53 @@
 # -*- coding: utf-8  -*-
 import os, sys, re
 
-def getConfig(file):
-    global cfg
+config_file = 'user-config.py'
+
+def saveConfig(wikis):
+    global family
+    res = """# -*- coding: utf-8  -*-
+from __future__ import unicode_literals
+
+family = '%(family)s'
+usernames[family] = {}
+sysopnames[family] = {}
+disambiguation_comment[family] = {}
+family_files = { family: 'family.py' }
+
+# Keep above as is. Usernames and config follows.""" % {'family': family.name}
+    
+    for wiki in wikis:
+        code = wiki['site'].code
+        res += '\r\n\r\n\r\n#  %s  http://%s/\r\n' % (code, wiki['url'])
+        res += '\r\n%susernames[family][\'%s\'] = \'%s\'' % ('' if wiki['usebot'] else '# ', code, botname)
+        res += '\r\n%ssysopnames[family][\'%s\'] = \'%s\'' % ('' if wiki['sysopname'] else '# ', code, wiki['sysopname'] or botname)
+    
+    import codecs
+    
+    f = codecs.open(config_file, 'w', 'utf-8')
+    f.write(res)
+    
+
+def getConfig():
+    global cfg, config_file
     cfg = {
         'usernames': {},
         'sysopnames': {},
         'disambiguation_comment': {},
         'family_files': {},
     }
-    if os.path.exists(file):
-        _filestatus = os.stat(file)
-        _filemode = _filestatus[0]
-        _fileuid = _filestatus[4]
-        if sys.platform == 'win32' or _fileuid in [os.getuid(), 0]:
-            if sys.platform == 'win32' or _filemode & 0o02 == 0:
-                with open(file, 'rb') as f:
-                    exec(compile(f.read(), file, 'exec'), cfg)
+    if os.path.exists(config_file):
+        status = os.stat(config_file)
+        if sys.platform == 'win32' or status[4] in [os.getuid(), 0]:
+            if sys.platform == 'win32' or status[0] & 0o02 == 0:
+                with open(config_file, 'rb') as f:
+                    exec(compile(f.read(), config_file, 'exec'), cfg)
             else:
                 print("WARNING: Skipped '%(fn)s': writeable by others."
-                      % {'fn': file})
+                      % {'fn': config_file})
         else:
             print("WARNING: Skipped '%(fn)s': owned by someone else."
-                  % {'fn': file})
+                  % {'fn': config_file})
         return True
     return False
 
@@ -32,11 +57,11 @@ def main():
     from pywikibot import output, input, input_choice, Site
     from importlib import import_module
     from family import Family
-    global cfg, family
+    global cfg, family, botname
     
     family = Family()
     
-    if not getConfig('user-config2.py'): cfg = None
+    if not getConfig(): cfg = None
     
     output('\r\n  \03{yellow}+------------------------------+\03{default}')
     output('  \03{yellow}|  \03{lightyellow}Pywikibot config generator  \03{yellow}|\03{default}')
@@ -67,7 +92,7 @@ def main():
     
     
     output('\r\n> \03{lightyellow}Step 2\03{default}: Wikis')
-    output('  Now you\'ll specify on which wikis do you want the bot to update data\r\n')
+    output('  Now you can specify wikis where you want the bot to update the data\r\n')
     langs = sorted(family.langs.keys())
     try:
         langs.insert(0, langs.pop(langs.index(u'en')))
@@ -89,16 +114,15 @@ def main():
         wiki['isSysop'] = 'sysop' in user['groups']
         wiki['isGloBot'] = 'bot-global' in user['groups']
         
-        wiki['botname'] = None
+        wiki['usebot'] = False
         wiki['sysopname'] = None
-        
     
     output('Current flags your bot has on LoL wikis:')
     output('  \03{lightyellow}Lang   URL                                             Bot     Sysop\03{default}')
     for wiki in wikis:
         isBot = '\03{lightgreen}Yes   \03{default}' if wiki['isBot'] else ('\03{lightpurple}Global\03{default}' if wiki['isGloBot'] else '\03{lightred}No    \03{default}')
         isSysop = '\03{lightgreen}Yes\03{default}' if wiki['isSysop'] else '\03{lightred}No\03{default}'
-        output('  \03{lightaqua}%(code)-5s\03{default}  http://%(url)-40s %(isBot)s  %(isSysop)s' % {
+        output('  \03{lightaqua}%(code)-5s  http://%(url)-40s\03{default} %(isBot)s  %(isSysop)s' % {
             'code': wiki['site'].code,
             'url': wiki['url'],
             'isBot': isBot,
@@ -116,27 +140,61 @@ def main():
     for wiki in wikis:
         if not langs:
             if wiki['isBot'] or wiki['isGloBot']:
-                wiki['botname'] = botname
+                wiki['usebot'] = True
         elif wiki['site'].code in langs:
-            wiki['botname'] = botname
-        if wiki['botname'] and wiki['isSysop']:
-            wiki['sysopname'] = botname
+            wiki['usebot'] = True
     
     output('\r\n> \03{lightyellow}Step 2\03{default}: Sysop accounts')
-    output('  There are some actions that might require an account with higher privileges, like protecting pages or editing ones that are protected.')
-    output('  These actions will be skipped when there is no sysop account available.')
-    output('  Also remember that these actions will show up in Recent Changes unless the account has a bot flag too.\r\n')
+    output('  Some actions like protecting pages may require a sysop account.')
+    output('  These actions will be skipped when there is no sysop account available.\r\n')
     
-    #TODO
+    for wiki in wikis:
+        if not wiki['usebot']: continue
+        output('\03{lightaqua}%s  http://%s\03{default}' % (wiki['site'].code, wiki['url']))
+        answers = []
+        default = None
+        
+        try:
+            sysop = cfg['sysopnames'][family.name][wiki['site'].code].strip()
+            if sysop != '':
+                output('Currently in config: \03{lightyellow}%s\03{default}' % sysop)
+                answers.append(('Keep current', 'k'))
+                default = 'k'
+        except (TypeError, KeyError):
+            pass
+        
+        if wiki['isSysop']:
+            output('Your bot \03{lightgreen}has sysop rights\03{default} here.')
+            answers.append(('Use bot', 'b'))
+            default = default or 'b'
+            
+        if len(answers):
+            answers.append(('Use another', 'a'))
+        else:
+            answers.append(('Specify', 's'))
+        answers.append(('Don\' use any', 'd'))
+            
+        choice = input_choice('\r\nWhat do you want to do?', answers, default or 'd', automatic_quit = False)
+        if choice == 'k':
+            wiki['sysopname'] = sysop
+        elif choice == 'b':
+            wiki['sysopname'] = botname
+        elif choice == 'a' or choice == 's':
+            wiki['sysopname'] = input('Sysop username for \03{lightaqua}%s\03{default}' % wiki['site'].code)
     
     output('> \03{lightyellow}Step 4\03{default}: Summary\r\n')
     output('  \03{lightyellow}Lang     Bot account             Sysop account\03{default}')
     for wiki in wikis:
         output('  \03{lightaqua}%(code)-5s\03{default}    %(botname)-20s    %(sysopname)s' % {
             'code': wiki['site'].code,
-            'botname': wiki['botname'] or '',
+            'botname': botname if wiki['usebot'] else '',
             'sysopname': wiki['sysopname'] or '',
         })
+        
+    output('')
+    output('')
+    if input_choice('Do you want to save new config?', [('Yes', 'y'), ('No', 'n')], 'y', automatic_quit = False) == 'y':
+        saveConfig(wikis)
     
 if __name__ == '__main__':
     main()
