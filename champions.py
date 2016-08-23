@@ -1,19 +1,16 @@
 # -*- coding: utf-8  -*-
 import pywikibot, re, api, lua
-from collections import OrderedDict
+from bot import bot, twtranslate
+bot = bot()
 
-# i18n
-from pywikibot.i18n import twtranslate, set_messages_package
-set_messages_package('i18n')
+# Other
+from collections import OrderedDict
 
 #
 from pprint import pprint
 
 # Properties
 type = 'champion'
-
-# Global switches
-saveAll = False
 
 def prepStats(stats):
     res = {}
@@ -40,6 +37,18 @@ def prepInfo(info):
         ('magic', info['magic']),
         ('difficulty', info['difficulty'])
     ])
+    
+def prepSkins(skins):
+    s = {}
+    maxId = 0
+    for skin in skins:
+        if skin['num'] > 0:
+            maxId = max(maxId, skin['num'])
+            s[skin['num']] = skin['name']
+    res = [None] * maxId
+    for x in range(0, maxId):
+        res[x] = s[x+1] if x+1 in s else None
+    return res
 
 def universalData(version):
     version = str(version)
@@ -62,16 +71,18 @@ def universalData(version):
     return res
     
 def localeData(version, locales, universal):
+    locales = list(set(locales))
     res = {}
     for locale in locales:
         res[locale] = {}
         addEn = re.match('^en', locale) == None
         
-        champs = api.call('static_get_champion_list', version = str(version), locale = locale)['data']
+        champs = api.call('static_get_champion_list', champ_data = 'skins', version = str(version), locale = locale)['data']
         for key, champ in champs.items():
             res[locale][key] = {}
             res[locale][key]['name'] = champ['name']
             res[locale][key]['title'] = champ['title']
+            res[locale][key]['skins'] = prepSkins(champ['skins'])
             if addEn:
                 res[locale][key]['name_en'] = universal[key]['name']
                 res[locale][key]['title_en'] = universal[key]['title']
@@ -103,11 +114,8 @@ def compare(old, new):
     
     return True, v
     
-def savePage(page, champ, locale, intro = None, outro = None):
-    global saveAll
-    pywikibot.output(u'\n\n>>> \03{lightpurple}%s\03{default} <<<' % page)
-    
-    match = re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', champ['update'])
+def savePage(wiki, page, champ, locale, intro = '', outro = ''):
+    global bot
     
     data = {}
     data.update(champ)
@@ -123,20 +131,31 @@ def savePage(page, champ, locale, intro = None, outro = None):
         'tags',
         'info',
         'stats',
+        'skins',
         'update',
     ])
     
-    new_text = (u'%s\n\nreturn %s\n\n%s' % (intro or '', data, outro or '')).strip()
+    newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, data, outro)).strip()
+    
+    print('SAVING: %s' % page)
+    wiki.saveModule(page, newtext, summary = 'create' if page.exists() else 'update')
+    
+    return
+    
+    old_text = ''
+    isNew = True
     try:
         old_text = page.get()
         isNew = False
     except pywikibot.exceptions.NoPage:
-        old_text = ''
-        isNew = True
+        pass
     
-    changed, version = compare(old_text, new_text)
+    
+    
+    changed, version = compare(old_text, newtext)
     if changed:
-        summary = twtranslate(page.site, 'champions-%s-summary' % ('create' if isNew else 'update')) % {
+        match = re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', champ['update'])
+        summary = twtranslate(page.site, 'champions-%s-summary' % ()) % {
             'full': match.group(0),
             'short': match.group(1)
         }
@@ -148,40 +167,33 @@ def savePage(page, champ, locale, intro = None, outro = None):
             choice = 'a'
         if choice == 'a': saveAll = True
         if choice == 'y' or choice == 'a':
-            page.put(new_text, summary = summary)
+            page.put(newtext, summary = summary)
         
     else:
         pywikibot.output(u'No changes were needed on %s' % page.title(asLink=True))
     pywikibot.output('')
     
 def updateChampions(wikis, locales, universal):
-    for key, champ in sorted(universal.items(), key=lambda x: x[1]['name'])[10:11]:
+    for key, champ in sorted(universal.items(), key=lambda x: x[1]['name'])[11:13]:
         for wiki in wikis:
-            site = wiki['site']
-            locale = wiki['locale']
+            page = pywikibot.Page(wiki, wiki.other['champModule'] % locales[wiki.locale][key]['name'])
             
-            page = pywikibot.Page(wiki['site'], wiki['champModule'] % locales[locale][key]['name'])
+            intro, outro = wiki.moduleComments('champion')
             
-            savePage(page, champ, locales[locale][key], intro = wiki['intro'], outro = wiki['outro'])
+            savePage(wiki, page, champ, locales[wiki.locale][key], intro = intro, outro = outro)
             
             
 def update(wikis, version):
-    
     for wiki in wikis:
-        page = pywikibot.Page(wiki['site'], u'Champion', ns=828)
+        page = pywikibot.Page(wiki, u'Module:Champion')
         try:
             page = page.getRedirectTarget()
         except pywikibot.exceptions.IsNotRedirectPage:
             pass
-        wiki['champModule'] = u'%s/%%s/data' % page.title()
+        wiki.other['champModule'] = u'%s/%%s/data' % page.title()
+        wiki.saveVersion('champion', '1.1.1')
     
     universal = universalData(version)
-    locales = localeData(version, [x['locale'] for x in wikis], universal)
+    locales = localeData(version, [x.locale for x in wikis], universal)
     
     updateChampions(wikis, locales, universal)
-    
-# For testing purposes:
-if __name__ == '__main__':
-    from lol import getWikis
-    pywikibot.config.simulate = saveAll = True
-    update(getWikis().values(), '6.16.1')
