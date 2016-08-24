@@ -16,17 +16,8 @@ from importlib import import_module
 def getTypeModule(type):
     return import_module(type)
 
-_instance = None
-def getBot():
-    global _instance
-    if not _instance:
-        _instance = Bot('lol')
-    return _instance
-    
-
 class Bot(Bot):
-    family = None
-    wikis = {}
+    family = 'lol'
     
     options = {
         'always': False,
@@ -39,9 +30,19 @@ class Bot(Bot):
         'spells',
     ]
     _save_counter = 0
+    langs = []
     
-    def __init__(self, family):
-        pywikibot.config.family = family
+    __instance = None
+    def __new__(cls):
+        if cls.__instance is None:
+            cls.__instance = super(Bot,cls).__new__(cls)
+            cls.__instance.__initialized = False
+        return cls.__instance
+        
+    def __init__(self):
+        if(self.__initialized): return
+        self.__initialized = True
+        
         langs = None
         types = None
         self.sinceVersion = None
@@ -54,32 +55,48 @@ class Bot(Bot):
             elif arg.startswith('-since:'):      self.sinceVersion = StrictVersion(arg[7:])
             elif arg.startswith('-types:'):      types = arg[7:].split(',')
         
-        self.family = pywikibot.family.Family.load(family)
-        config.family = family = self.family.name
-        config.mylang = None
+        self.family = pywikibot.family.Family.load(self.__class__.family)
+        config.family = self.family.name
         
-        self.langs = self.family.langs.keys()
-        self.langs = sorted([x for x in config.usernames[family].keys() if x in self.langs])
+        self.__class__.langs = self.family.langs.keys()
+        self.__class__.langs = sorted([x for x in config.usernames[self.family.name].keys() if x in self.__class__.langs])
         try:
-            self.langs.insert(0, self.langs.pop(self.langs.index(u'en')))
+            self.__class__.langs.insert(0, self.__class__.langs.pop(self.__class__.langs.index(u'en')))
         except ValueError:
             pass
-        if langs: self.langs = [x for x in langs if x in self.langs]
+        if langs: self.langs = [x for x in langs if x in self.__class__.langs]
         
+        self.wikis = {}
         for lang in self.langs:
-            self.wikis[lang] = wiki = pywikibot.Site(lang, family)
-            wiki.__class__ = Wiki
-            wiki.reInit()
+            self.wikis[lang] = wiki = Wiki(lang, self.family)
             
-        if types: self.types = sorted([x for x in types if x in Bot.types])
+        if types: self.types = [x for x in types if x in self.__class_.types]
+        
+    @property
+    def current_page(self):
+        return self._current_page
+        
+    @current_page.setter
+    def current_page(self, page):
+        if page != self._current_page:
+            self._current_page = page
+            output(u'\n\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
+                       % (page.site.lang, page.title()))
+    
+    def getWikiList(self, region = None, locale = None):
+        res = []
+        for lang in self.langs:
+            wiki = self.wikis[lang]
+            if region and wiki.region != region: continue
+            if locale and wiki.locale != locale: continue
+            res.append(wiki)
+        return res
     
     def printTable(self, type):
         output('\03{lightyellow}  Wiki     Region    Locale        Old  New\03{default}')
-        for lang in self.langs:
-            wiki = self.wikis[lang]
-            
+        for wiki in self.getWikiList():
             old = wiki.getVersion(type)
-            new = wiki.getRealm()['n'][type]
+            new = wiki.realm['n'][type]
             
             output('  \03{lightaqua}%(wiki)-5s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
                 'wiki':    wiki.lang,
@@ -97,14 +114,12 @@ class Bot(Bot):
             versions = [x for x in api.call('static_get_versions') if StrictVersion(x) >= self.sinceVersion]
             for v in versions:
                 if v not in res: res[v] = []
-                for lang in self.langs:
-                    wiki = self.wikis[lang]
+                for wiki in self.getWikiList():
                     if wiki.needsUpdateTo(type, v):
                         res[v].append(wiki)
         else:
-            for lang in self.langs:
-                wiki = self.wikis[lang]
-                v = wiki.getRealm()['n'][type]
+            for wiki in self.getWikiList():
+                v = wiki.realm['n'][type]
                 if v not in res: res[v] = []
                 if wiki.needsUpdateTo(type, v):
                     res[v].append(wiki)
@@ -124,48 +139,41 @@ class Bot(Bot):
                     raise ImportError
             except ImportError:
                 continue
-            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (module.__name__.upper(), '='*(43-len(module.__name__))))
+            
+            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (module.__name__.upper(), '='*(50-len(module.__name__))))
             self.printTable(module.type)
-            output('\r\n\03{yellow}%s\03{default}' % ('='*(53)))
+            output('\r\n\03{yellow}%s\03{default}' % ('='*(60)))
+            
             for version, list in self.getWorkList(module.type):
-                pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
+                output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
                 try:
                     module.update(list, version)
                 except LoLException as e:
-                    pywikibot.output('API error response: %s  - skipping' % e.error)
+                    output('API responded with: %s  - skipping this version' % e.error)
                 for wiki in list:
                     wiki.other['topVersion'] = str(version)
+            
+            output('\r\n  Saving info about latest version')
             versions = {}
-            for wiki in [self.wikis[x] for x in self.langs]:
+            for wiki in self.getWikiList():
                 v = wiki.other['topVersion']
                 if v not in versions: versions[v] = []
                 versions[v].append(wiki)
                 
-            pywikibot.output('\r\n  Saving info about latest version')
             for version, list in sorted(versions.items(), key = lambda x: StrictVersion(x[0])):
                 if hasattr(module, 'topVersion'):
                     module.topVersion(list, version)
                 for wiki in list:
                     wiki.saveVersion(type, version)
-            
-    @property
-    def current_page(self):
-        return self._current_page
-    @current_page.setter
-    def current_page(self, page):
-        if page != self._current_page:
-            self._current_page = page
-            output(u'\n\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
-                       % (page.site.lang, page.title()))
-
-realms = {}
 
 class Wiki(pywikibot.site.APISite):
     versionModule = 'Module:Lolwikibot/%s'
-    
-    def reInit(self):
+    def __init__(self, *args, **kwargs):
+        super(Wiki, self).__init__(*args, **kwargs)
+        
         self.region = None
         self.locale = None
+        self._realm = None
         self.comments = {}
         self.versions = {}
         self.other = {}
@@ -184,11 +192,14 @@ class Wiki(pywikibot.site.APISite):
             if not match: raise ValueError('malformed')
             self.locale = '%s_%s' % (match.group(1), match.group(2).upper())
         except (ValueError, KeyError):
-            self.locale = self.getRealm()['l']
+            self.locale = self.realm['l']
             output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (self, self.locale))
     
-    def getRealm(self):
-        return api.realm(self.region)
+    @property
+    def realm(self):
+        if not self._realm:
+            self._realm = api.realm(self.region)
+        return self._realm
     
     def needsUpdateTo(self, type, version):
         if not isinstance(version, StrictVersion):
@@ -242,7 +253,7 @@ class Wiki(pywikibot.site.APISite):
         return True # Data different - update with regular summary
     
     def saveModule(self, page, newtext, **kwargs):
-        getBot().current_page = page
+        Bot().current_page = page
         
         oldtext = ''
         try:
@@ -254,7 +265,7 @@ class Wiki(pywikibot.site.APISite):
                 return output(u'No changes were needed on %s' % page.title(asLink=True))
         except NoPage:
             pass
-        getBot().userPut(page, oldtext, newtext, summary = kwargs['summary'])
+        Bot().userPut(page, oldtext, newtext, summary = kwargs['summary'])
         
         #TODO: need to return if the save was made
         #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
@@ -295,3 +306,12 @@ class Wiki(pywikibot.site.APISite):
                 outro = ''
             self.comments[''] = (intro, outro)
         return self.comments[type]
+        
+    def subpageOf(self, page, subpage):
+        if not isinstance(page, pywikibot.Page):
+            page = pywikibot.Page(self, page)
+        try:
+            page = page.getRedirectTarget()
+        except pywikibot.exceptions.IsNotRedirectPage:
+            pass
+        return pywikibot.Page(self, '%s/%s' % (page.title(), subpage))

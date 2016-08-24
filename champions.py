@@ -1,7 +1,7 @@
 # -*- coding: utf-8  -*-
 import pywikibot, re, api, lua
-from bot import getBot, twtranslate
-bot = getBot()
+from bot import Bot, twtranslate
+bot = Bot()
 
 # Other
 from collections import OrderedDict
@@ -153,7 +153,7 @@ def saveList(wiki, page, data):
 def updateChampions(wikis, locales, universal):
     for key, champ in sorted(universal.items(), key=lambda x: x[1]['name']):
         for wiki in wikis:
-            page = pywikibot.Page(wiki, wiki.other['champModule'] % key)
+            page = wiki.subpageOf('Module:Champion', '%s/data' % key)
             
             saveChamp(page, champ, locales[wiki.locale][key])
     
@@ -172,7 +172,7 @@ def statLists(wikis, universal):
     for wiki in wikis:
         tpl = wiki.other['champListModule']
         for key, data in sorted(pages.items()):
-            page = pywikibot.Page(wiki, tpl % key)
+            page = wiki.subpageOf('Module:Champion', 'list/%s' % key)
             
             saveList(wiki, page, data)
     
@@ -180,24 +180,17 @@ def updateLists(wikis, locales, universal):
     statLists(wikis, universal)
     
 def update(wikis, version):
-    for wiki in wikis:
-        page = pywikibot.Page(wiki, u'Module:Champion')
-        try:
-            page = page.getRedirectTarget()
-        except pywikibot.exceptions.IsNotRedirectPage:
-            pass
-        wiki.other['champModule'] = u'%s/%%s/data' % page.title()
-        wiki.other['champListModule'] = u'%s/list/%%s' % page.title()
-    
     universal = universalData(version)
     locales = localeData(version, [x.locale for x in wikis])
     
-    #updateChampions(wikis, locales, universal)
-    #updateLists(wikis, locales, universal)
+    updateChampions(wikis, locales, universal)
+    updateLists(wikis, locales, universal)
     
 def updateAliases(wikis, aliases):
     for wiki in wikis:
-        data = 
+        data = aliases[wiki.locale]
+        
+        #wiki.saveModule()
     
 def prepAliases(locales):
     res = {}
