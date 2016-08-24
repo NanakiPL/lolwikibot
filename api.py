@@ -1,7 +1,8 @@
 # -*- coding: utf-8  -*-
-from riotwatcher import RiotWatcher, LoLException
+from riotwatcher import RiotWatcher, LoLException, error_429, error_500, error_503
 from time import sleep
 from pywikibot import output, input
+from requests.exceptions import HTTPError
 
 keyFile = 'key.txt'
 
@@ -14,14 +15,14 @@ def _get():
             key = readKey()
         except (ValueError, IOError) as e:
             if type(e) is ValueError or e.errno == 2:
-                pywikibot.output('Riot API key missing')
+                output('Riot API key missing')
             else:
-                pywikibot.output('Couldn\'t read %s' % keyFile)
-            key = pywikibot.input('Input your key')
+                output('Couldn\'t read %s' % keyFile)
+            key = input('Input your key')
             try:
                 satKey(key)
             except IOError:
-                pywikibot.output('Couldn\'t save the key in a file. Continuing regardless')
+                output('Couldn\'t save the key in a file. Continuing regardless')
         api = RiotWatcher(key)
     return api
     
@@ -45,9 +46,16 @@ def call(method, *args, **kargs):
         try:
             return m(*args, **kargs)
         except LoLException as e:
+            if e.error not in [error_429, error_500, error_503]: raise
             delay = noTries * 5
             noTries += 1
-            pywikibot.output('API not responding \'%s\'. Retrying in %d seconds' % (e.error, delay))
+            output('%s() #%d: API error \'%s\'. Retrying in %d seconds' % (method, e.error, delay))
+            sleep(delay)
+        except HTTPError as e:
+            if e.response.status_code not in [403]: raise
+            delay = noTries * 5
+            noTries += 1
+            output('%s() #%d: HTTP error %d. Retrying in %d seconds' % (method, e.response.status_code, delay))
             sleep(delay)
 
 def realm(region = 'na'):
