@@ -2,7 +2,8 @@
 import pywikibot, re, api, lua
 from pywikibot import config, output
 from pywikibot.bot import Bot
-from pywikibot.exceptions import UserBlocked, UserRightsError, NoPage, IsNotRedirectPage, LockedPage
+from pywikibot.exceptions import NoPage
+from api import LoLException
 
 # i18n
 from pywikibot.i18n import twtranslate, set_messages_package
@@ -16,11 +17,10 @@ def getTypeModule(type):
     return import_module(type)
 
 _instance = None
-def bot():
+def getBot():
     global _instance
     if not _instance:
-        import family
-        _instance = Bot(family.Family.name)
+        _instance = Bot('lol')
     return _instance
     
 
@@ -72,15 +72,6 @@ class Bot(Bot):
             wiki.reInit()
             
         if types: self.types = sorted([x for x in types if x in Bot.types])
-        types = []
-        for type in self.types:
-            try:
-                m = getTypeModule(type)
-                if hasattr(m, 'update') and hasattr(m, 'type'):
-                    types.append(m)
-            except ImportError:
-                pass
-        self.types = types
     
     def printTable(self, type):
         output('\03{lightyellow}  Wiki     Region    Locale        Old  New\03{default}')
@@ -127,12 +118,21 @@ class Bot(Bot):
             output('Error: No valid types to work on')
             self.quit()
         for type in self.types:
-            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (type.__name__.upper(), '='*(43-len(type.__name__))))
-            self.printTable(type.type)
+            try:
+                module = getTypeModule(type)
+                if not hasattr(module, 'update') or not hasattr(module, 'type'):
+                    raise ImportError
+            except ImportError:
+                continue
+            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (module.__name__.upper(), '='*(43-len(module.__name__))))
+            self.printTable(module.type)
             output('\r\n\03{yellow}%s\03{default}' % ('='*(53)))
-            for version, list in self.getWorkList(type.type):
+            for version, list in self.getWorkList(module.type):
                 pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
-                type.update(list, version)
+                try:
+                    module.update(list, version)
+                except LoLException as e:
+                    pywikibot.output('API error response: %s  - skipping' % e.error)
         
     @property
     def current_page(self):
@@ -228,7 +228,7 @@ class Wiki(pywikibot.site.APISite):
         return True # Data different - update with regular summary
     
     def saveModule(self, page, newtext, **kwargs):
-        self.current_page = page
+        getBot().current_page = page
         
         oldtext = ''
         try:
@@ -237,10 +237,10 @@ class Wiki(pywikibot.site.APISite):
             if res and res != True:
                 return self.userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
             elif res == False:
-                return output(u'No changes were needed on s%s' % page.title(asLink=True))
+                return output(u'No changes were needed on %s' % page.title(asLink=True))
         except NoPage:
             pass
-        self.userPut(page, oldtext, newtext, summary = kwargs['summary'])
+        getBot().userPut(page, oldtext, newtext, summary = kwargs['summary'])
         
         #TODO: need to return if the save was made
         #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
@@ -281,7 +281,3 @@ class Wiki(pywikibot.site.APISite):
                 outro = ''
             self.comments[''] = (intro, outro)
         return self.comments[type]
-
-if __name__ == '__main__':
-    Bot('lol').run()
-    pass
