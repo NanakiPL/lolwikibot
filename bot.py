@@ -133,7 +133,21 @@ class Bot(Bot):
                     module.update(list, version)
                 except LoLException as e:
                     pywikibot.output('API error response: %s  - skipping' % e.error)
-        
+                for wiki in list:
+                    wiki.other['topVersion'] = str(version)
+            versions = {}
+            for wiki in [self.wikis[x] for x in self.langs]:
+                v = wiki.other['topVersion']
+                if v not in versions: versions[v] = []
+                versions[v].append(wiki)
+                
+            pywikibot.output('\r\n  Saving info about latest version')
+            for version, list in sorted(versions.items(), key = lambda x: StrictVersion(x[0])):
+                if hasattr(module, 'topVersion'):
+                    module.topVersion(list, version)
+                for wiki in list:
+                    wiki.saveVersion(type, version)
+            
     @property
     def current_page(self):
         return self._current_page
