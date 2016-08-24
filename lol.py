@@ -15,10 +15,10 @@ def main():
     global config_file
     if checkUserConfig():
         import pywikibot
-        from bot import bot
+        from bot import getBot
         
         try:
-            bot().run()
+            getBot().run()
         except (pywikibot.bot.QuitKeyboardInterrupt, KeyboardInterrupt) as e:
             pywikibot.output('\r\n\03{lightaqua}Stopping open threads\03{default} - to force quit press Ctrl+C' + ' again' if type(e) is KeyboardInterrupt else '')
             try:
