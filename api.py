@@ -3,8 +3,10 @@ from riotwatcher import RiotWatcher, LoLException, error_429, error_500, error_5
 from time import sleep
 from pywikibot import output, input
 from requests.exceptions import HTTPError
+from distutils.version import StrictVersion
 
 keyFile = 'key.txt'
+firstDataVersion = StrictVersion('3.7.1')
 
 def _get():
     global keyFile, api
@@ -66,6 +68,17 @@ def realm(region = 'na'):
         
     return realm.cache[region]
 realm.cache = {}
+
+def versions():
+    try:
+        return versions.cache
+    except AttributeError:
+        pass
+    
+    global firstDataVersion
+    versions.cache = [StrictVersion(x) for x in call('static_get_versions') ]
+    versions.cache = sorted([x for x in versions.cache if x >= firstDataVersion])
+    return versions.cache
 
 if __name__ == '__main__':
     try:
