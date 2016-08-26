@@ -1,6 +1,6 @@
 # -*- coding: utf-8  -*-
 import pywikibot, re, api, lua
-from bot import Bot, twtranslate
+from bot import Bot, twtranslate, VersionConflict
 bot = Bot()
 
 # Other
@@ -74,7 +74,7 @@ def universalData(version):
         s['resource'] = champ['partype']
         
         s['update'] = version
-     
+    
     keys = sorted(universalData.cache.keys() + [version], key = lambda x: StrictVersion(x))
     for key in keys[:-2]:
         del universalData.cache[key]
@@ -116,14 +116,17 @@ def saveChamp(page, champ, locale):
         'short': version.group(1)
     }
     
-    wiki.saveData(page, data, summary = summary, order = [
-        'id',
-        'key',
-        'name',
-        'title',
-        'name_en',
-        'title_en',
-    ])
+    try:
+        wiki.saveData(page, data, summary = summary, order = [
+            'id',
+            'key',
+            'name',
+            'title',
+            'name_en',
+            'title_en',
+        ])
+    except VersionConflict as e:
+        pywikibot.output('Version conflict: trying to save older version of data. Current: \03{lightyellow}%s\03{default}' % e.old)
     
 def saveList(wiki, page, data):
     wiki = page.site
@@ -175,8 +178,7 @@ def update(wikis, version):
 def updateAliases(wikis, aliases):
     for wiki in wikis:
         data = aliases[wiki.locale]
-        
-        #wiki.saveModule()
+        wiki.saveData(wiki.subpageOf('Module:Champion', 'keys'), data)
     
 def prepAliases(locales):
     res = {}
