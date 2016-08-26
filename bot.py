@@ -16,8 +16,9 @@ from importlib import import_module
 class Bot(Bot):
     family = 'lol'
     
-    options = {
+    availableOptions = {
         'always': False,
+        'last': False,
     }
     types = [
         'champions',
@@ -41,15 +42,21 @@ class Bot(Bot):
         self.__initialized = True
         
         types = None
-        self.sinceVersion = None
         
+        self.options = {
+            'always': False,
+            'last': False,
+        }
+        
+        self.args = []
         for arg in pywikibot.handle_args():
             if   arg == '-always':                         self.setOptions(always = True)
+            elif arg == '-last':                           self.setOptions(last = True)
             elif arg == '-dryrun':                         pywikibot.config.simulate = True
             elif arg.startswith('-langs:') and not langs:  langs = arg[7:].split(',')
-            elif arg.startswith('-key:'):                  api.setKey(arg[5:])
-            elif arg.startswith('-since:'):                self.sinceVersion = StrictVersion(arg[7:])
             elif arg.startswith('-types:'):                types = arg[7:].split(',')
+            elif arg.startswith('-key:'):                  api.setKey(arg[5:])
+            else: self.args.append(arg)
         
         self.family = pywikibot.family.Family.load(self.__class__.family)
         config.family = self.family.name
@@ -110,19 +117,22 @@ class Bot(Bot):
         
     def getWorkList(self, type):
         res = {}
-        if self.sinceVersion:
-            versions = [x for x in api.call('static_get_versions') if StrictVersion(x) >= self.sinceVersion]
+        wikis = self.getWikiList()
+        versions = api.versions()
+        
+        if self.getOption('last'):
+            for wiki in wikis:
+                v = wiki.realm['n'][type]
+                if v not in res:
+                    res[v] = []
+                res[v].append(wiki)
+        else:
             for v in versions:
+                v = str(v)
                 if v not in res: res[v] = []
-                for wiki in self.getWikiList():
+                for wiki in wikis:
                     if wiki.needsUpdateTo(type, v):
                         res[v].append(wiki)
-        else:
-            for wiki in self.getWikiList():
-                v = wiki.realm['n'][type]
-                if v not in res: res[v] = []
-                if wiki.needsUpdateTo(type, v):
-                    res[v].append(wiki)
         return sorted([x for x in res.items() if len(x[1]) > 0], key = lambda x: StrictVersion(x[0]))
     
     def run(self):
@@ -173,6 +183,7 @@ class Wiki(pywikibot.site.APISite):
         
         self.region = None
         self.locale = None
+        self.protectLevel = None
         self._realm = None
         self.comments = {}
         self.versions = {}
@@ -194,6 +205,12 @@ class Wiki(pywikibot.site.APISite):
         except (ValueError, KeyError):
             self.locale = self.realm['l']
             output('Notice: \03{lightaqua}%s\03{default} doesn\'t have a locale specified - assuming region default: %s' % (self, self.locale))
+        
+        try:
+            self.protectLevel = self.mediawiki_message('custom-lolwikibot-protect').strip().lower()
+            if self.protectLevel == '': raise ValueError
+        except (ValueError, KeyError):
+            pass
     
     @property
     def realm(self):
@@ -225,6 +242,9 @@ class Wiki(pywikibot.site.APISite):
         
         if self.saveData(page, version, summary = summary, fallback = False):
             self.versions[type] = version
+        
+        if page.exists():
+            self.protectModule(page)
     
     def compareModules(self, oldtext, newtext):
         if oldtext == newtext:
@@ -264,31 +284,46 @@ class Wiki(pywikibot.site.APISite):
         
         intro, outro = self.moduleComments(comments, fallback)
         newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, newtext, outro)).strip()
-    
+        
         oldtext = ''
         skip = False
+        success = False
         try:
             oldtext = page.get()
-            if isinstance(data, list) and 'update' in data:
+            if not isinstance(data, list) and 'update' in data:
                 newver = StrictVersion(data['update'])
                 p = re.compile('[\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*[,\}]')
                 match = p.search(lua.decomment(oldtext))
                 if match:
                     oldver = StrictVersion(match.group(1))
-                    if oldver > newver: raise VersionMismatch(oldver, newver)
+                    if oldver > newver: raise VersionConflict(oldver, newver)
             res = self.compareModules(oldtext, newtext)
             if res and res != True:
-                self.userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
+                success = Bot().userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
                 skip = True
             elif res == False:
                 output(u'No changes were needed on %s' % page.title(asLink=True))
+                success = None
                 skip = True
         except NoPage:
             pass
-        Bot().userPut(page, oldtext, newtext, summary = summary)
+        if not skip:
+            success = Bot().userPut(page, oldtext, newtext, summary = summary)
         
-        #TODO: need to return if the save was made
-        #TODO: checking and applying protection from MediaWiki:custom-lolwikibot-protect
+        if page.exists():
+            self.protectModule(page)
+        
+        return success
+    
+    def protectModule(self, page):
+        if self.protectLevel and 'edit' in page.applicable_protections():
+            current = page.protection()
+            if 'edit' in current and current['edit'][0] == self.protectLevel and 'move' in current and current['move'][0] == self.protectLevel: return
+            reason = twtranslate(self, 'lolwikibot-protect-summary')
+            print(reason)
+            self.protect(page, {'edit':self.protectLevel,'move':self.protectLevel}, reason)
+            
+            raise Exception('boink')
         
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
@@ -336,7 +371,7 @@ class Wiki(pywikibot.site.APISite):
             pass
         return pywikibot.Page(self, '%s/%s' % (page.title(), subpage))
 
-class VersionMismatch(Exception):
+class VersionConflict(Exception):
     def __init__(self, old, new):
         self.old = old
         if not isinstance(old, StrictVersion):
