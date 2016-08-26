@@ -5,6 +5,6 @@
         ]
 	},
     
-	"champions-create-summary": "Edit summary when creating a data module. Parameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
-	"champions-update-summary": "Edit summary when updating a data module. Parameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)"
+	"champions-create-summary": "Summary used when creating a champion data module.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"champions-update-summary": "Summary used when updating a champion data module.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)"
 }
