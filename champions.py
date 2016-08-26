@@ -58,7 +58,7 @@ def universalData(version):
         return universalData.cache[version]
     res = {}
     
-    champs = api.call('static_get_champion_list', version = str(version), champ_data = 'stats,tags,info')['data']
+    champs = api.call('static_get_champion_list', version = str(version), champ_data = 'stats,tags,info,partype')['data']
     for key, champ in champs.items():
         res[key] = s = {}
         s['id'] = champ['id']
@@ -70,6 +70,8 @@ def universalData(version):
         
         s['name'] = champ['name']
         s['title'] = champ['title']
+        
+        s['resource'] = champ['partype']
         
         s['update'] = version
      
@@ -109,46 +111,30 @@ def saveChamp(page, champ, locale):
     data.update(champ)
     data.update(locale)
     
-    intro, outro = wiki.moduleComments('champion')
+    summary = twtranslate(wiki, 'champions-%s-summary' % ('update' if page.exists() else 'create')) % {
+        'full': version.group(0),
+        'short': version.group(1)
+    }
     
-    data = lua.ordered_dumps(data, [
+    wiki.saveData(page, data, summary = summary, order = [
         'id',
         'key',
         'name',
         'title',
         'name_en',
         'title_en',
-        'tags',
-        'info',
-        'stats',
-        'skins',
     ])
-    
-    newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, data, outro)).strip()
-    
-    summary = twtranslate(wiki, 'champions-%s-summary' % ('update' if page.exists() else 'create')) % {
-        'full': version.group(0),
-        'short': version.group(1)
-    }
-    wiki.saveModule(page, newtext, summary = summary)
     
 def saveList(wiki, page, data):
     wiki = page.site
     version = re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', data['update'])
     
-    intro, outro = wiki.moduleComments('champion')
-    
-    data = lua.ordered_dumps(data, [
-        'list'
-    ])
-    
-    newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, data, outro)).strip()
-    
     summary = twtranslate(wiki, 'champions-%s-list-summary' % ('update' if page.exists() else 'create')) % {
         'full': version.group(0),
         'short': version.group(1)
     }
-    wiki.saveModule(page, newtext, summary = summary)
+    
+    wiki.saveData(page, data, summary = summary, order = ['list'])
     
 def updateChampions(wikis, locales, universal):
     for key, champ in sorted(universal.items(), key=lambda x: x[1]['name']):

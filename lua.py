@@ -2,13 +2,13 @@
 from collections import OrderedDict
 
 def dumps(obj, depth=0):
-    if type(obj) is int or type(obj) is float:
+    if isinstance(obj, (int, float)):
         return '%g' % round(obj, 5)
     if isinstance(obj, basestring):
         return '\'%s\'' % obj.replace('\'', '\\\'')
-    if type(obj) is bool:
+    if isinstance(obj, bool):
         return 'true' if obj else 'false'
-    if type(obj) is dict:
+    if isinstance(obj, dict) and not isinstance(obj, OrderedDict):
         obj = OrderedDict(sorted(obj.items()))
     if type(obj) is OrderedDict:
         ind1 = '    ' * depth
