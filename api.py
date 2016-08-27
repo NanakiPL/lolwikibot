@@ -22,7 +22,7 @@ def _get():
                 output('Couldn\'t read %s' % keyFile)
             key = input('Input your key')
             try:
-                satKey(key)
+                setKey(key)
             except IOError:
                 output('Couldn\'t save the key in a file. Continuing regardless')
         api = RiotWatcher(key)
