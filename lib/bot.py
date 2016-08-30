@@ -11,7 +11,6 @@ set_messages_package('i18n')
 
 # Other
 from distutils.version import StrictVersion
-from importlib import import_module
 
 class Bot(Bot):
     family = 'lol'
@@ -139,47 +138,9 @@ class Bot(Bot):
                         res[v].append(wiki)
         return sorted([x for x in res.items() if len(x[1]) > 0], key = lambda x: StrictVersion(x[0]))
     
-    def run(self):
-        if len(self.langs) == 0:
-            output('Error: No valid languages to work on')
-            self.quit()
-        if len(self.types) == 0:
-            output('Error: No valid types to work on')
-            self.quit()
-        for type in self.types:
-            try:
-                module = import_module(type)
-                if not hasattr(module, 'update') or not hasattr(module, 'type'):
-                    raise ImportError
-            except ImportError:
-                continue
-            
-            output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (module.__name__.upper(), '='*(50-len(module.__name__))))
-            self.printTable(module.type)
-            output('\r\n\03{yellow}%s\03{default}' % ('='*(60)))
-            
-            for version, list in self.getWorkList(module.type):
-                output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
-                try:
-                    module.update(list, version)
-                except LoLException as e:
-                    output('API responded with: %s  - skipping this version' % e.error)
-                for wiki in list:
-                    wiki.other['topVersion'] = str(version)
-            
-            output('\r\n  Saving info about latest version')
-            versions = {}
-            for wiki in self.getWikiList():
-                v = wiki.other['topVersion']
-                if v not in versions: versions[v] = []
-                versions[v].append(wiki)
-                
-            for version, list in sorted(versions.items(), key = lambda x: StrictVersion(x[0])):
-                if hasattr(module, 'topVersion'):
-                    module.topVersion(list, version)
-                for wiki in list:
-                    wiki.saveVersion(type, version)
-
+    def run(self): # override parent
+        pass
+    
 class Wiki(pywikibot.site.APISite):
     __initialized = None
     versionModule = 'Module:Lolwikibot/%s'

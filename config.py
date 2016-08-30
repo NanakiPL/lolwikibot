@@ -51,6 +51,19 @@ def getConfig():
         return True
     return False
 
+def check(create = False):
+    global config_file
+    if not os.path.exists(config_file):
+        if create:
+            main(True)
+            from pywikibot import output
+            if os.path.exists(config_file):
+                output('\r\n\03{lightgreen}Config file saved. Run the script again for changes to take effect\03{default}')
+            else:
+                output('\r\n\03{lightred}Config file creation failed - try again\03{default}')
+        return False
+    return True
+
 def main(force = False):
     os.environ['PYWIKIBOT2_NO_USER_CONFIG'] = '1'
     import pywikibot
