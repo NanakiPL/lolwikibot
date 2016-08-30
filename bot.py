@@ -72,6 +72,10 @@ class Bot(Bot):
         self.wikis = {}
         for lang in self.langs:
             self.wikis[lang] = wiki = Wiki(lang, self.family)
+            if wiki.logged_in():
+                output('Logged in to \03{lightaqua}%s\03{default}' % wiki)
+            else:
+                wiki.login()
             
         if types: self.types = [x for x in types if x in self.__class_.types]
         
@@ -177,9 +181,16 @@ class Bot(Bot):
                     wiki.saveVersion(type, version)
 
 class Wiki(pywikibot.site.APISite):
+    __initialized = None
     versionModule = 'Module:Lolwikibot/%s'
+    def __new__(cls, *args, **kwargs):
+        wiki = pywikibot.Site(*args, **kwargs)
+        if not isinstance(wiki, cls):
+            wiki.__class__ = cls
+        return wiki
     def __init__(self, *args, **kwargs):
-        super(Wiki, self).__init__(*args, **kwargs)
+        if self.__initialized: return
+        self.__initialized = True
         
         self.region = None
         self.locale = None
@@ -319,11 +330,9 @@ class Wiki(pywikibot.site.APISite):
         if self.protectLevel and 'edit' in page.applicable_protections():
             current = page.protection()
             if 'edit' in current and current['edit'][0] == self.protectLevel and 'move' in current and current['move'][0] == self.protectLevel: return
+            output(u'Protecting %s' % page.title(asLink=True))
             reason = twtranslate(self, 'lolwikibot-protect-summary')
-            print(reason)
             self.protect(page, {'edit':self.protectLevel,'move':self.protectLevel}, reason)
-            
-            raise Exception('boink')
         
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
