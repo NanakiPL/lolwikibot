@@ -12,7 +12,7 @@ family = '%(family)s'
 usernames[family] = {}
 sysopnames[family] = {}
 disambiguation_comment[family] = {}
-family_files = { family: 'family.py' }
+family_files = { family: 'lib/family.py' }
 
 # Keep above as is. Usernames and config follows.""" % {'family': family.name}
     

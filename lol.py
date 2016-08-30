@@ -15,7 +15,7 @@ def main():
     global config_file
     if checkUserConfig():
         import pywikibot
-        from bot import Bot
+        from lib.bot import Bot
         
         try:
             Bot().run()
