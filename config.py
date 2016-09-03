@@ -69,7 +69,7 @@ def main(force = False):
     import pywikibot
     from pywikibot import output, input, input_choice, Site
     from importlib import import_module
-    from family import Family
+    from lib.family import Family
     global cfg, family, botname
     
     family = Family()
