@@ -51,13 +51,13 @@ def call(method, *args, **kargs):
             if e.error not in [error_429, error_500, error_503]: raise
             delay = noTries * 5
             noTries += 1
-            output('%s() #%d: API error \'%s\'. Retrying in %d seconds' % (method, e.error, delay))
+            output('%s(): API error \'%s\'. Retrying in %d seconds' % (method, e.error, delay))
             sleep(delay)
         except HTTPError as e:
             if e.response.status_code not in [403]: raise
             delay = noTries * 5
             noTries += 1
-            output('%s() #%d: HTTP error %d. Retrying in %d seconds' % (method, e.response.status_code, delay))
+            output('%s(): HTTP error %d. Retrying in %d seconds' % (method, e.response.status_code, delay))
             sleep(delay)
 
 def realm(region = 'na'):
