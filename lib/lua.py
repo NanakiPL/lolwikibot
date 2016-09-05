@@ -1,5 +1,6 @@
 # -*- coding: utf-8  -*-
 from collections import OrderedDict
+import re
 
 def dumps(obj, depth=0):
     if isinstance(obj, (int, float)):
@@ -32,22 +33,21 @@ def dumps(obj, depth=0):
         return u'{\n%s%s\n%s}' % (ind2, (',\n' + ind2).join(res), ind1)
     return 'nil'
     
-def ordered_dumps(obj, order):
-    ord = []
+def ordered_dumps(obj):
+    res = []
+    for i in range(len(obj)):
+        line = ''
+        if isinstance(obj[i], tuple):
+            line += u'    [%s] = %s' % (dumps(obj[i][0]), dumps(obj[i][1], 1))
+        else:
+            line += u'    -- %s' % obj[i] or ''
+        res.append(line)
+            
+    res = u'{\n%s\n}' % ((',\n').join(res))
+    res = re.sub(ur'(^|\n)    -- ,(\n|$)', ur'\1\2', res)
+    res = re.sub(ur'(-- .*?),(\n|$)', ur'\1\2', res)
     
-    for a in order:
-        try:
-            ord.append((a, obj[a]))
-        except KeyError:
-            pass
-    
-    for a in sorted([x for x in obj.keys() if x not in order]):
-        try:
-            ord.append((a, obj[a]))
-        except KeyError:
-            pass
-    
-    return dumps(OrderedDict(ord))
+    return res
     
 def decomment(text):
     from re import sub, M
