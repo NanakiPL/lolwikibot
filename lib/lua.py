@@ -34,18 +34,23 @@ def dumps(obj, depth=0):
     return 'nil'
     
 def ordered_dumps(obj):
+    last = None
+    for i in reversed(range(len(obj))):
+        if isinstance(obj[i], tuple):
+            last = i
+            break
+    
     res = []
     for i in range(len(obj)):
         line = ''
         if isinstance(obj[i], tuple):
-            line += u'    [%s] = %s' % (dumps(obj[i][0]), dumps(obj[i][1], 1))
-        else:
+            line += u'    [%s] = %s%s' % (dumps(obj[i][0]), dumps(obj[i][1], 1), ',' if i < last else '')
+        elif obj[i] != None:
             line += u'    -- %s' % (obj[i] or '')
         res.append(line)
             
-    res = u'{\n%s\n}' % ((',\n').join(res))
-    res = re.sub(ur'(^|\n)    -- ,(\n|$)', ur'\1\2', res)
-    res = re.sub(ur'(-- .*?),(\n|$)', ur'\1\2', res)
+    res = u'{\n%s\n}' % (('\n').join(res))
+    res = re.sub(ur'(-- .*?),?(\n|$)', ur'\1\2', res)
     
     return res
     
