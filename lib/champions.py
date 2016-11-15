@@ -1,5 +1,5 @@
 # -*- coding: utf-8  -*-
-import pywikibot, re, api, lua
+import pywikibot, re, api, lua, sys
 from bot import Bot, twtranslate, VersionConflict
 bot = Bot()
 
@@ -18,16 +18,16 @@ def prepStats(stats):
     
     for x in ['armor', 'attackdamage', 'crit', 'hp', 'hpregen', 'mp', 'mpregen', 'spellblock']:
         res[x] = {
-            'base': round(stats[x], 3),
-            'level': round(stats[x + 'perlevel'], 3)
+            'base': round(stats[x], 5),
+            'level': round(stats[x + 'perlevel'], 5)
         }
-    res['attackrange'] = round(stats['attackrange'], 3)
-    res['movespeed'] = round(stats['movespeed'], 3)
+    res['attackrange'] = round(stats['attackrange'], 5)
+    res['movespeed'] = round(stats['movespeed'], 5)
     res['attackspeed'] = {
-        'offset': round(stats['attackspeedoffset'], 3),
-        'level': round(stats['attackspeedperlevel'], 3)
+        'offset': round(stats['attackspeedoffset'], 5),
+        'level': round(stats['attackspeedperlevel'], 5)
     }
-    res['attackspeed']['base'] = round(0.625 / (1 + stats['attackspeedoffset']), 3)
+    res['attackspeed']['base'] = round(0.625 / (1 + stats['attackspeedoffset']), 5)
     
     return res
     
@@ -98,6 +98,7 @@ def localeData(version, locales):
             res[locale][key]['name'] = champ['name']
             res[locale][key]['title'] = champ['title']
             res[locale][key]['skins'] = prepSkins(champ['skins'])
+            res[locale][key]['update'] = version
             if addEn:
                 res[locale][key]['name_en'] = universal[key]['name']
                 res[locale][key]['title_en'] = universal[key]['title']
@@ -126,7 +127,7 @@ def saveChamp(page, champ, locale):
             'title_en',
         ])
     except VersionConflict as e:
-        pywikibot.output('Version conflict: trying to save older version of data. Current: \03{lightyellow}%s\03{default}' % e.old)
+        pywikibot.output('Version conflict: trying to save older version of data.' % e.old)
     
 def saveList(wiki, page, data):
     wiki = page.site
@@ -137,35 +138,99 @@ def saveList(wiki, page, data):
         'short': version.group(1)
     }
     
-    wiki.saveData(page, data, summary = summary, order = ['list'])
+    try:
+        wiki.saveData(page, data, summary = summary, order = ['list'])
+    except VersionConflict as e:
+        pywikibot.output('Version conflict: trying to save older version of data.' % e.old)
     
 def updateChampions(wikis, locales, universal):
     for key, champ in sorted(universal.items(), key=lambda x: x[1]['name']):
         for wiki in wikis:
-            page = wiki.subpageOf('Module:Champion', '%s/data' % key)
+            page = wiki.subpageOf('Module:Champion', '%s' % key)
             
             saveChamp(page, champ, locales[wiki.locale][key])
     
 def statLists(wikis, universal):
     pages = {}
-    for key, champ in sorted(universal.items(), key=lambda x: x[1]['name']):
+    for key, champ in universal.items():
         for stat in champ['stats']:
             p = 'stats.%s' % stat
             if p not in pages: pages[p] = {'list':{},'update':champ['update']}
             pages[p]['list'][key] = {
                 'id': champ['id'],
+                'name': champ['name'],
                 'stats': {
                     stat: champ['stats'][stat]
                 }
             }
     for wiki in wikis:
-        tpl = wiki.other['champListModule']
         for key, data in sorted(pages.items()):
             page = wiki.subpageOf('Module:Champion', 'list/%s' % key)
             
             saveList(wiki, page, data)
     
+def tagsList(wikis, universal):
+    data = {}
+    for key, champ in universal.items():
+        data[key] = {
+            'id': champ['id'],
+            'name': champ['name'],
+            'tags': champ['tags']
+        }
+    data = {'list': data, 'update': champ['update']}
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/tags')
+        saveList(wiki, page, data)
+    
+def resourceList(wikis, universal):
+    data = {}
+    for key, champ in universal.items():
+        data[key] = {
+            'id': champ['id'],
+            'name': champ['name'],
+            'resource': champ['resource']
+        }
+    data = {'list': data, 'update': champ['update']}
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/resource')
+        saveList(wiki, page, data)
+    
+def infoList(wikis, universal):
+    data = {}
+    for key, champ in universal.items():
+        data[key] = {
+            'id': champ['id'],
+            'name': champ['name'],
+            'info': champ['info']
+        }
+    data = {'list': data, 'update': champ['update']}
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/info')
+        saveList(wiki, page, data)
+    
+def nameList(wikis, locales):
+    res = {}
+    for locale, data in locales.items():
+        d = {}
+        for key, champ in data.items():
+            d[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'name_en': champ['name_en'],
+                'title': champ['title'],
+                'title_en': champ['title_en'],
+            }
+        res[locale] = {'list': d, 'update': champ['update']}
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/name')
+        pprint(res[wiki.locale])
+        saveList(wiki, page, res[wiki.locale])
+    
 def updateLists(wikis, locales, universal):
+    nameList(wikis, locales)
+    tagsList(wikis, universal)
+    resourceList(wikis, universal)
+    infoList(wikis, universal)
     statLists(wikis, universal)
     
 def update(wikis, version):
@@ -174,11 +239,14 @@ def update(wikis, version):
     
     updateChampions(wikis, locales, universal)
     updateLists(wikis, locales, universal)
-    
+
+# Last version only
 def updateAliases(wikis, aliases):
     for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'keys')
         data = aliases[wiki.locale]
-        wiki.saveData(wiki.subpageOf('Module:Champion', 'keys'), data)
+        summary = twtranslate(wiki, 'champions-%s-keys-summary' % ('update' if page.exists() else 'create'))
+        wiki.saveData(page, data, summary = summary, comments = 'keys')
     
 def prepAliases(locales):
     res = {}
@@ -194,9 +262,45 @@ def prepAliases(locales):
         d = OrderedDict(sorted(d.items(), key = lambda x: x[1]))
     return res
     
+def lastUpdateList(wikis, universal):
+    global bot
+    p = re.compile('([\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\')([0-9]+\.[0-9]+\.[0-9]+)(\'\s*[,\}])')
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/updates')
+        bot.current_page = page
+        pywikibot.output('Getting versions from champion data modules')
+        pywikibot.output('Press Ctrl+C anytime to skip this page')
+        
+        list = sorted(universal.items(), key=lambda x: x[1]['name'])
+        size = len(list)
+        i = 0
+        
+        try:
+            res = {}
+            for key, champ in list:
+                i += 1
+                champpage = wiki.subpageOf('Module:Champion', '%s' % key)
+                try:
+                    match = p.search(champpage.text)
+                    ver = match.group(2)
+                except AttributeError:
+                    ver = None
+                if ver:
+                    res[key] = str(ver)
+                
+                sys.stdout.write('\r')
+                sys.stdout.flush()
+                sys.stdout.write('Progress: %3d / %3d' % (i, size))
+                sys.stdout.flush()
+            pywikibot.output('')
+            wiki.saveData(page, res)
+        except KeyboardInterrupt:
+            pass
+    
 def topVersion(wikis, version):
     universal = universalData(version)
     locales = localeData(version, [x.locale for x in wikis])
     
     aliases = prepAliases(locales)
     updateAliases(wikis, aliases)
+    #lastUpdateList(wikis, universal)
