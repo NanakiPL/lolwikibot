@@ -9,5 +9,8 @@
 	"champions-update-summary": "Bot: Updating champion data to version [[v%(short)s|%(full)s]]",
     
 	"champions-create-list-summary": "Bot: Adding a champion data list - [[v%(short)s|%(full)s]]",
-	"champions-update-list-summary": "Bot: Updating a champion data list to version [[v%(short)s|%(full)s]]"
+	"champions-update-list-summary": "Bot: Updating a champion data list to version [[v%(short)s|%(full)s]]",
+    
+	"champions-create-keys-summary": "Bot: Adding a list of keys",
+	"champions-update-keys-summary": "Bot: Updating a list of keys"
 }
