@@ -4,6 +4,8 @@ from pywikibot import config, output
 from pywikibot.bot import Bot
 from pywikibot.exceptions import NoPage
 from api import LoLException
+from json import loads
+from ordered_set import OrderedSet
 
 # i18n
 from pywikibot.i18n import twtranslate, set_messages_package
@@ -12,12 +14,40 @@ set_messages_package('i18n')
 # Other
 from distutils.version import StrictVersion
 
+
+from collections import Mapping
+def addMissing(f, t):
+    changed = False
+    for k, v in f.items():
+        if k not in t:
+            t[k] = v
+        elif isinstance(t[k], Mapping) and isinstance(v, Mapping):
+            changed = addMissing(v, t[k]) or changed
+        else:
+            changed = changed or t[k] != v
+    if not changed:
+        for k, v in t.items():
+            if k not in f:
+                return True
+    return changed
+    
+def numKeys(data):
+    if isinstance(data, dict):
+        for k,v in data.items():
+            try:
+                n = int(k)
+                data[n] = numKeys(v)
+                del data[k]
+            except ValueError:
+                pass
+    return data
+
 class Bot(Bot):
     family = 'lol'
     
     availableOptions = {
         'always': False,
-        'last': False,
+        'protect': False,
     }
     types = [
         'champions',
@@ -44,19 +74,19 @@ class Bot(Bot):
         
         self.options = {
             'always': False,
-            'last': False,
+            'protect': False,
         }
         
         self.args = []
         for arg in pywikibot.handle_args():
-            if   arg == '-always':                         self.setOptions(always = True)
-            elif arg == '-last':                           self.setOptions(last = True)
+            if   arg == '-always':                         self.options['always'] = True
+            elif arg == '-protect':                        self.options['protect'] = True
             elif arg == '-dryrun':                         pywikibot.config.simulate = True
             elif arg.startswith('-langs:') and not langs:  langs = arg[7:].split(',')
             elif arg.startswith('-types:'):                types = arg[7:].split(',')
             elif arg.startswith('-key:'):                  api.setKey(arg[5:])
             else: self.args.append(arg)
-        
+            
         self.family = pywikibot.family.Family.load(self.__class__.family)
         config.family = self.family.name
         
@@ -87,10 +117,10 @@ class Bot(Bot):
         if page != self._current_page:
             self._current_page = page
             if len(self.langs) == 1:
-                output(u'\n\n>>> \03{lightpurple}%s\03{default} <<<'
+                output(u'\r\n\r\n>>> \03{lightpurple}%s\03{default} <<<'
                        % (page.title()))
             else:
-                output(u'\n\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
+                output(u'\r\n\r\n>>> \03{lightaqua}%s\03{default} : \03{lightpurple}%s\03{default} <<<'
                        % (page.site.code, page.title()))
     
     def getWikiList(self, region = None, locale = None):
@@ -108,35 +138,18 @@ class Bot(Bot):
             old = wiki.getVersion(type)
             new = wiki.realm['n'][type]
             
-            output('  \03{lightaqua}%(wiki)-5s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}  %(action)s' % {
+            output('  \03{lightaqua}%(wiki)-5s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}' % {
                 'wiki':    wiki.lang,
                 'region':  wiki.region,
                 'locale':  wiki.locale,
                 'old':     old,
                 'new':     new,
-                'color':   '\03{lightred}' if wiki.needsUpdateTo(type, new) else '\03{lightgreen}',
-                'action':  '' if wiki.needsUpdateTo(type, new) else 'SKIP'
+                'color':   '\03{lightred}' if wiki.needsUpdateTo(type, new) else '\03{lightgreen}'
             })
-        
-    def getWorkList(self, type):
-        res = {}
-        wikis = self.getWikiList()
-        versions = api.versions()
-        
-        if self.getOption('last'):
-            for wiki in wikis:
-                v = wiki.realm['n'][type]
-                if v not in res:
-                    res[v] = []
-                res[v].append(wiki)
-        else:
-            for v in versions:
-                v = str(v)
-                if v not in res: res[v] = []
-                for wiki in wikis:
-                    if wiki.needsUpdateTo(type, v):
-                        res[v].append(wiki)
-        return sorted([x for x in res.items() if len(x[1]) > 0], key = lambda x: StrictVersion(x[0]))
+    
+    def userPut(self, *args, **kwargs):
+        if self.getOption('protect'): kwargs['async'] = False
+        return super(Bot, self).userPut(*args, **kwargs)
     
     def run(self): # override parent
         pass
@@ -199,12 +212,13 @@ class Wiki(pywikibot.site.APISite):
     def getVersion(self, type):
         if type not in self.versions:
             try:
-                match = re.search('^\s*return\s*\{\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*\}', pywikibot.Page(self, self.versionModule % type).get())
-                self.versions[type] = StrictVersion(match.group(1))
+                match = re.search(r'(?:^|\n)\s*return\s*\{\s*(\'|")([0-9]+\.[0-9]+\.[0-9]+)\1\s*\}', pywikibot.Page(self, self.versionModule % type).get())
+                self.versions[type] = StrictVersion(match.group(2))
+                
             except (NoPage, AttributeError):
                 self.versions[type] = None
         return self.versions[type]
-    
+        
     def saveVersion(self, type, version):
         version = str(version)
         
@@ -212,81 +226,115 @@ class Wiki(pywikibot.site.APISite):
         
         summary = twtranslate(self, 'lolwikibot-version-summary')
         
-        if self.saveData(page, version, summary = summary, fallback = False):
+        if self.saveData(page, version, summary = summary, comments = 'version', fallback = False):
             self.versions[type] = version
         
-        if page.exists():
-            self.protectModule(page)
-    
-    def compareModules(self, oldtext, newtext):
-        if oldtext == newtext:
-            return False # Nothing changed - don't do anything
-            
-        newtext_i = lua.decomment(newtext).strip()
-        oldtext_i = lua.decomment(oldtext).strip()
+    def fetchData(self, page, suppress = False):
+        if page.namespace() != 828:
+            raise ValueError('%s needs to be in Module namespace' % page.title(asLink = True))
+        if not suppress: output('Fetching data from %s' % page.title(asLink = True))
         
-        if oldtext_i == newtext_i:
-            return newtext # Only comments changed - update with different summary
+        data = loads(self.expand_text('{{#invoke:lolwikibot|dumpModule|%s}}' % page.title(withNamespace = False), title = page.title()))
+        if 'error' in data:
+            raise LuaError(data['error'])
         
-        p = re.compile('([\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\')([0-9]+\.[0-9]+\.[0-9]+)(\'\s*[,\}])')
-        match = p.search(oldtext_i)
-        if match:
-            oldtext_i = p.sub(ur'\1\3', oldtext_i)
-            newtext_i = p.sub(ur'\1\3', newtext_i)
-            
-            if oldtext_i == newtext_i:
-                newnewtext = p.sub(lambda x: '%s%s%s' % (x.group(1), match.group(2), x.group(3)), newtext)
-                if oldtext == newnewtext:
-                    return False # Version changed. Data and comments same - don't do anything
-                return newnewtext # Version and coments changed - update only comments with different summary and keep old version
-        return True # Data different - update with regular summary
-    
-    def saveData(self, page, data, comments = '', order = None, summary = None, fallback = True):
+        return numKeys(data)
+        
+    def saveData(self, page, newdata, comments = '', fallback = True, **kwargs):
         if not isinstance(page, pywikibot.page.BasePage):
             page = pywikibot.Page(self, page)
         Bot().current_page = page
         
-        if isinstance(data, (basestring, int, float)):
-            data = [data]
-        
-        if order:
-            newtext = lua.ordered_dumps(data, order)
-        else:
-            newtext = lua.dumps(data)
+        if isinstance(newdata, (basestring, int, float)):
+            newdata = [newdata]
         
         intro, outro = self.moduleComments(comments, fallback)
-        newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, newtext, outro)).strip()
         
-        oldtext = ''
-        skip = False
-        success = False
-        try:
-            oldtext = page.get()
-            if not isinstance(data, list) and 'update' in data:
-                newver = StrictVersion(data['update'])
-                p = re.compile('[\{,]\s*\[\s*\'update\'\s*\]\s*=\s*\'([0-9]+\.[0-9]+\.[0-9]+)\'\s*[,\}]')
-                match = p.search(lua.decomment(oldtext))
-                if match:
-                    oldver = StrictVersion(match.group(1))
-                    if oldver > newver: raise VersionConflict(oldver, newver)
-            res = self.compareModules(oldtext, newtext)
-            if res and res != True:
-                success = Bot().userPut(page, oldtext, res, summary = twtranslate(self, 'lolwikibot-commentsonly-summary'))
-                skip = True
-            elif res == False:
-                output(u'No changes were needed on %s' % page.title(asLink=True))
-                success = None
-                skip = True
-        except NoPage:
-            pass
-        if not skip:
-            success = Bot().userPut(page, oldtext, newtext, summary = summary)
+        if isinstance(newdata, list):
+            res = self._saveList(page, newdata, intro = intro, outro = outro, **kwargs)
+        else:
+            res = self._saveDict(page, newdata, intro = intro, outro = outro, **kwargs)
         
-        if page.exists():
+        if Bot().getOption('protect') and page.exists():
             self.protectModule(page)
         
-        return success
+        return res
     
+    def _saveList(self, page, newdata, intro = '', outro = '', order = None, summary = None):
+        olddata = None
+        oldtext = ''
+        
+        if page.exists():
+            olddata = self.fetchData(page)
+            oldtext = page.get()
+            
+            changed = olddata != newdata
+            
+            if not changed:
+                summary = twtranslate(self, 'lolwikibot-commentsonly-summary')
+        
+        newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, lua.dumps(newdata), outro)).strip()
+        
+        return Bot().userPut(page, oldtext, newtext, summary = summary)
+    
+    def _saveDict(self, page, newdata, intro = '', outro = '', order = None, summary = None):
+        newver = newdata.get('update', None)
+        oldver = None
+        
+        olddata = None
+        oldtext = ''
+        if page.exists():
+            olddata = self.fetchData(page)
+            oldtext = page.get()
+            oldver = olddata.get('update', None)
+            if oldver:
+                output('Current version: \03{lightyellow}%s\03{default}' % oldver)
+        
+        keys = OrderedSet()
+        added = OrderedSet()
+        
+        if order:
+            for k in order:
+                if k in newdata:
+                    keys.add(k)
+                elif olddata and k in olddata:
+                    added.add(k)
+        
+        for k in sorted(newdata.keys()):
+            keys.add(k)
+        
+        if olddata:
+            for k in sorted(olddata.keys()):
+                if k not in newdata:
+                    added.add(k)
+            
+            if newver and oldver:
+                if StrictVersion(oldver) > StrictVersion(newver): raise VersionConflict(oldver, newver)
+                newdata['update'] = oldver
+            
+            changed = addMissing(olddata, newdata)
+            
+            if not changed:
+                summary = twtranslate(self, 'lolwikibot-commentsonly-summary')
+            elif newver:
+                newdata['update'] = newver
+            oldtext = page.get()
+        
+        dump = []
+        for k in keys:
+            dump += [(k, newdata[k])]
+        dump += [None]
+        dump += twtranslate(self, 'lolwikibot-division-line-comment').split('\n')
+        dump += [None]
+        for k in added:
+            dump += [(k, newdata[k])]
+        
+        newtext = lua.ordered_dumps(dump)
+        
+        newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, newtext, outro)).strip()
+        
+        return Bot().userPut(page, oldtext, newtext, summary = summary)
+        
     def protectModule(self, page):
         if self.protectLevel and 'edit' in page.applicable_protections():
             current = page.protection()
@@ -298,6 +346,9 @@ class Wiki(pywikibot.site.APISite):
     def moduleComments(self, type = '', fallback = True):
         if type not in self.comments:
             from lua import commentify
+            
+            intro = None
+            outro = None
             
             # Type-specific
             if type != '':
@@ -311,25 +362,22 @@ class Wiki(pywikibot.site.APISite):
                     outro = commentify(outro)
                 except KeyError:
                     outro = None
-                if fallback and (intro == None or outro == None):
-                    i, o = self.moduleComments()
-                    intro = i if intro == None else intro
-                    outro = o if outro == None else outro
-                self.comments[type] = (intro or '', outro or '')
-                return self.comments[type]
             
             # Default
-            try:
-                intro = self.mediawiki_message('custom-lolwikibot-module-intro').strip()
-                intro = commentify(intro)
-            except KeyError:
-                intro = ''
-            try:
-                outro = self.mediawiki_message('custom-lolwikibot-module-outro').strip()
-                outro = commentify(outro)
-            except KeyError:
-                outro = ''
-            self.comments[''] = (intro, outro)
+            if fallback or type == '':
+                if not intro:
+                    try:
+                        intro = self.mediawiki_message('custom-lolwikibot-module-intro').strip()
+                        intro = commentify(intro)
+                    except KeyError:
+                        intro = ''
+                if not outro:
+                    try:
+                        outro = self.mediawiki_message('custom-lolwikibot-module-outro').strip()
+                        outro = commentify(outro)
+                    except KeyError:
+                        outro = ''
+            self.comments[type] = (intro or '', outro or '')
         return self.comments[type]
         
     def subpageOf(self, page, subpage):
@@ -352,3 +400,11 @@ class VersionConflict(Exception):
             self.new = StrictVersion(new)
         else:
             self.new = new
+    def __str__(self):
+        return '%s => %s' % (self.old, self.new)
+
+class LuaError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return self.value
