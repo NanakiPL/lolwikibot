@@ -53,6 +53,7 @@ def run(bot):
                 pywikibot.output('API responded with: %s  - skipping this version' % e.error)
             for wiki in list:
                 wiki.other['topVersion'] = str(version)
+                wiki.saveVersion(module.type, version)
         
         versions = {}
         for wiki in bot.getWikiList():
@@ -65,8 +66,6 @@ def run(bot):
         for version, list in sorted(versions.items(), key = lambda x: StrictVersion(x[0])):
             if hasattr(module, 'topVersion'):
                 module.topVersion(list, version)
-            for wiki in list:
-                wiki.saveVersion(module.type, version)
     
 def main():
     import config
