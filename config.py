@@ -1,5 +1,12 @@
 # -*- coding: utf-8  -*-
 import os, sys, re
+os.environ['PYWIKIBOT2_NO_USER_CONFIG'] = '1'
+
+import pywikibot, os
+from pywikibot import output, input, input_choice, Site
+from importlib import import_module
+from lib.family import Family
+from lib import api
 
 config_file = 'user-config.py'
 
@@ -26,6 +33,7 @@ family_files = { family: 'lib/family.py' }
     
     f = codecs.open(config_file, 'w', 'utf-8')
     f.write(res)
+    os.chmod(f.name, 0o755)
     
 
 def getConfig():
@@ -64,26 +72,9 @@ def check(create = False):
         return False
     return True
 
-def main(force = False):
-    os.environ['PYWIKIBOT2_NO_USER_CONFIG'] = '1'
-    import pywikibot
-    from pywikibot import output, input, input_choice, Site
-    from importlib import import_module
-    from lib.family import Family
+def stepUsername(i):
     global cfg, family, botname
-    
-    family = Family()
-    
-    if not getConfig(): cfg = None
-    
-    output('\r\n\03{yellow}+------------------------------+\03{default}')
-    output('\03{yellow}|  \03{lightyellow}Pywikibot config generator  \03{yellow}|\03{default}')
-    output('\03{yellow}+------------------------------+\03{default}\r\n')
-    
-    if not cfg:
-        output('Your user-config.py file is missing. Follow these steps to create it\r\n\r\n')
-    
-    output('\r\n> \03{lightyellow}Step 1\03{default}: Username')
+    output('\r\n> \03{lightyellow}Step %d\03{default}: Username' % i)
     output('  Which account do you want to be used for bot edits\r\n')
     usernamePrompt = True
     if cfg:
@@ -101,10 +92,10 @@ def main(force = False):
     
     if usernamePrompt:
         botname = raw_input("\r\nPlease enter Wikia username of your bot: ")
-    output('')
     
-    
-    output('\r\n> \03{lightyellow}Step 2\03{default}: Wikis')
+def stepWikis(i):
+    global family, botname, wikis
+    output('\r\n> \03{lightyellow}Step %d\03{default}: Wikis' % i)
     output('  Now you can specify wikis where you want the bot to update the data\r\n')
     langs = sorted(family.langs.keys())
     try:
@@ -156,8 +147,10 @@ def main(force = False):
                 wiki['usebot'] = True
         elif wiki['site'].code in langs:
             wiki['usebot'] = True
-    
-    output('\r\n> \03{lightyellow}Step 3\03{default}: Sysop accounts')
+            
+def stepSysop(i):
+    global family, botname, wikis
+    output('\r\n> \03{lightyellow}Step %d\03{default}: Sysop accounts' % i)
     output('  Some actions like protecting pages may require a sysop account.')
     output('  These actions will be skipped when there is no sysop account available.\r\n')
     
@@ -170,7 +163,7 @@ def main(force = False):
         try:
             sysop = cfg['sysopnames'][family.name][wiki['site'].code].strip()
             if sysop != '':
-                output('Currently in config: \03{lightyellow}%s\03{default}' % sysop)
+                output('Currently in config: %s' % sysop)
                 answers.append(('Keep current', 'k'))
                 default = 'k'
         except (TypeError, KeyError):
@@ -185,7 +178,7 @@ def main(force = False):
             answers.append(('Use another', 'a'))
         else:
             answers.append(('Specify', 's'))
-        answers.append(('Don\' use any', 'd'))
+        answers.append(('Don\'t use any', 'd'))
             
         choice = input_choice('\r\nWhat do you want to do?', answers, default or 'd', automatic_quit = False)
         if choice == 'k':
@@ -195,7 +188,8 @@ def main(force = False):
         elif choice == 'a' or choice == 's':
             wiki['sysopname'] = input('Sysop username for \03{lightaqua}%s\03{default}' % wiki['site'].code)
     
-    output('> \03{lightyellow}Step 4\03{default}: Summary\r\n')
+def stepSummary(i, force):
+    output('\r\n> \03{lightyellow}Step %d\03{default}: Summary\r\n' % i)
     output('  \03{lightyellow}Lang     Bot account             Sysop account\03{default}')
     for wiki in wikis:
         output('  \03{lightaqua}%(code)-5s\03{default}    %(botname)-20s    %(sysopname)s' % {
@@ -203,12 +197,50 @@ def main(force = False):
             'botname': botname if wiki['usebot'] else '',
             'sysopname': wiki['sysopname'] or '',
         })
-        
-    output('')
+            
     output('')
     if force or input_choice('Do you want to save new config?', [('Yes', 'y'), ('No', 'n')], 'y', automatic_quit = False) == 'y':
         saveConfig(wikis)
+            
+def stepAPI(i):
+    output('\r\n> \03{lightyellow}Step %d\03{default}: Riot API key' % i)
+    output('  You need a key to use Riot\'s API. You can get it here:')
+    output('  https://developer.riotgames.com/\r\n')
+    
+    try:
+        key = api.readKey()
+        output('  \03{lightyellow}Current key:\03{default} %s\r\n' % key)
+        if input_choice('Do you want to change the key?', [('Yes', 'y'), ('No', 'n')], 'n', automatic_quit = False) == 'n':
+            return
+    except (ValueError, IOError) as e:
+        pass
+    
+    key = input('Key')
+    
+    try:
+        api.setKey(key)
+    except IOError:
+        output('Couldn\'t save the key in a file. Make sure you have permission to write \'%s\'' % api.keyFile)
+    
+def main(force = False):
+    global cfg, family, botname
+    
+    family = Family()
+    
+    if not getConfig(): cfg = None
+    
+    output('\r\n\03{yellow}+------------------------------+\03{default}')
+    output('\03{yellow}|  \03{lightyellow}Pywikibot config generator  \03{yellow}|\03{default}')
+    output('\03{yellow}+------------------------------+\03{default}\r\n')
+    
+    if not cfg:
+        output('Your user-config.py file is missing. Follow these steps to create it\r\n\r\n')
+    
+    stepUsername(1)
+    stepWikis(2)
+    stepSysop(3)
+    stepSummary(4, force)
+    stepAPI(5)
     
 if __name__ == '__main__':
     main()
-    pass
