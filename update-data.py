@@ -35,17 +35,17 @@ def run(bot):
     for type in bot.types:
         try:
             module = import_module('lib.%s' % type)
-            if not hasattr(module, 'update') or not hasattr(module, 'type'):
+            if not hasattr(module, 'update') or not hasattr(module, 'datatype'):
                 raise ImportError
         except ImportError:
             continue
         
         name = re.sub('^lib\.', '', module.__name__)
         pywikibot.output('\r\n\r\n\03{yellow}======  \03{lightyellow}%s  \03{yellow}%s\03{default}\r\n' % (name.upper(), '='*(46-len(name))))
-        bot.printTable(module.type)
+        bot.printTable(module.datatype)
         pywikibot.output('\r\n\03{yellow}%s\03{default}' % ('='*56))
         
-        for version, list in getWorkList(bot, module.type):
+        for version, list in getWorkList(bot, module.datatype):
             pywikibot.output('\r\n  Version: \03{lightyellow}%-10s\03{default}  working on \03{lightyellow}%d\03{default} wiki%s  \03{lightaqua}%s\03{default}' % (version, len(list), ': ' if len(list) == 1 else 's:', '\03{default}, \03{lightaqua}'.join([x.lang for x in list])))
             try:
                 module.update(list, version)
@@ -53,7 +53,7 @@ def run(bot):
                 pywikibot.output('API responded with: %s  - skipping this version' % e.error)
             for wiki in list:
                 wiki.other['topVersion'] = str(version)
-                wiki.saveVersion(module.type, version)
+                wiki.saveVersion(module.datatype, version)
         
         versions = {}
         for wiki in bot.getWikiList():

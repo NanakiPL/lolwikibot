@@ -11,7 +11,7 @@ from distutils.version import StrictVersion
 from pprint import pprint
 
 # Properties
-type = 'champion'
+datatype = 'champion'
 
 def prepStats(stats):
     res = {}
