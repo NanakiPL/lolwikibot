@@ -261,64 +261,28 @@ class Wiki(pywikibot.site.APISite):
         return res
     
     def _saveList(self, page, newdata, intro = '', outro = '', order = None, summary = None):
-        olddata = None
-        oldtext = ''
-        
-        if page.exists():
-            olddata = self.fetchData(page)
-            oldtext = page.get()
-            
-            changed = olddata != newdata
-            
-            if not changed:
-                summary = twtranslate(self, 'lolwikibot-commentsonly-summary')
-        
+        oldtext = page.text
         newtext = (u'%s\n\nreturn %s\n\n%s' % (intro, lua.dumps(newdata), outro)).strip()
         
         return Bot().userPut(page, oldtext, newtext, summary = summary)
     
-    def _saveDict(self, page, newdata, intro = '', outro = '', order = None, summary = None):
-        newver = newdata.get('update', None)
-        oldver = None
-        
-        olddata = None
-        oldtext = ''
-        if page.exists():
-            olddata = self.fetchData(page)
-            oldtext = page.get()
-            oldver = olddata.get('update', None)
-            if oldver:
-                output('Current version: \03{lightyellow}%s\03{default}' % oldver)
+    def _saveDict(self, page, newdata, intro = '', outro = '', order = [], summary = None, extra = []):
+        oldtext = page.text
         
         keys = OrderedSet()
-        added = OrderedSet()
+        extras = OrderedSet()
         
-        if order:
-            for k in order:
-                if k in newdata:
-                    keys.add(k)
-                elif olddata and k in olddata:
-                    added.add(k)
+        for k in order:
+            if k in newdata:
+                keys.add(k)
+                
+        for k in extra:
+            if k in newdata:
+                extras.add(k)
         
         for k in sorted(newdata.keys()):
-            keys.add(k)
-        
-        if olddata:
-            for k in sorted(olddata.keys()):
-                if k not in newdata:
-                    added.add(k)
-            
-            if newver and oldver:
-                if StrictVersion(oldver) > StrictVersion(newver): raise VersionConflict(oldver, newver)
-                newdata['update'] = oldver
-            
-            changed = addMissing(olddata, newdata)
-            
-            if not changed:
-                summary = twtranslate(self, 'lolwikibot-commentsonly-summary')
-            elif newver:
-                newdata['update'] = newver
-            oldtext = page.get()
+            if k not in extra:
+                keys.add(k)
         
         dump = []
         for k in keys:
@@ -326,7 +290,7 @@ class Wiki(pywikibot.site.APISite):
         dump += [None]
         dump += twtranslate(self, 'lolwikibot-division-line-comment').split('\n')
         dump += [None]
-        for k in added:
+        for k in extras:
             dump += [(k, newdata[k])]
         
         newtext = lua.ordered_dumps(dump)
