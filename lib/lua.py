@@ -44,7 +44,7 @@ def ordered_dumps(obj):
     for i in range(len(obj)):
         line = ''
         if isinstance(obj[i], tuple):
-            line += u'    [%s] = %s%s' % (dumps(obj[i][0]), dumps(obj[i][1], 1), ',' if i < last else '')
+            line += u'    [%s] = %s%s' % (dumps(obj[i][0]), dumps(obj[i][1], 1), ',')
         elif obj[i] != None:
             line += u'    -- %s' % (obj[i] or '')
         res.append(line)
