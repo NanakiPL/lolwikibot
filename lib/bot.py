@@ -48,6 +48,7 @@ class Bot(Bot):
     availableOptions = {
         'always': False,
         'protect': False,
+        'downgrade': False,
     }
     types = [
         'champions',
@@ -75,12 +76,14 @@ class Bot(Bot):
         self.options = {
             'always': False,
             'protect': False,
+            'downgrade': False,
         }
         
         self.args = []
         for arg in pywikibot.handle_args():
             if   arg == '-always':                         self.options['always'] = True
             elif arg == '-protect':                        self.options['protect'] = True
+            elif arg == '-downgrade':                      self.options['downgrade'] = True
             elif arg == '-dryrun':                         pywikibot.config.simulate = True
             elif arg.startswith('-langs:') and not langs:  langs = arg[7:].split(',')
             elif arg.startswith('-types:'):                types = arg[7:].split(',')
