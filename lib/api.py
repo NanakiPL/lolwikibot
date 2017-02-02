@@ -31,14 +31,21 @@ def _get():
 def readKey():
     global keyFile
     f = open(keyFile)
-    key = f.read().strip()
+    try:
+        key = f.read().strip()
+    finally:
+        f.close()
     if key == '': raise ValueError
     return key
     
 def setKey(key):
     global keyFile
     f = open(keyFile, 'w')
-    f.write(key.strip())
+    try:
+        f.write(key.strip() + '\n')
+        os.chmod(f.name, 0o755)
+    finally:
+        f.close()
     
 def call(method, *args, **kargs):
     m = getattr(_get(), method)
