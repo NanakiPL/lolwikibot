@@ -5,12 +5,16 @@
         ]
 	},
     
-	"champions-create-summary": "Robot dodaje dane bohatera – [[v%(short)s|%(full)s]]",
-	"champions-update-summary": "Robot aktualizuje dane bohatera do wersji [[v%(short)s|%(full)s]]",
+	"champions-create-summary": "Robot dodaje dane bohatera ([[v%(short)s|%(full)s]])",
+	"champions-create-summary": "Robot przywraca dane bohatera ([[v%(short)s|%(full)s]])",
+	"champions-update-summary": "Robot aktualizuje dane bohatera do wersji ([[v%(short)s|%(full)s]])",
     
-	"champions-create-list-summary": "Robot dodaje listę z danymi bohaterów - [[v%(short)s|%(full)s]]",
-	"champions-update-list-summary": "Robot aktualizuje listę z danymi bohaterów do wersji [[v%(short)s|%(full)s]]",
+	"champions-create-list-summary": "Robot dodaje listę z danymi bohaterów ([[v%(short)s|%(full)s]])",
+	"champions-update-list-summary": "Robot aktualizuje listę z danymi bohaterów ([[v%(short)s|%(full)s]])",
     
 	"champions-create-keys-summary": "Robot dodaje listę kluczy",
-	"champions-update-keys-summary": "Robot aktualizje listę kluczy"
+	"champions-update-keys-summary": "Robot aktualizje listę kluczy",
+    
+	"champions-create-updates-summary": "Robot dodaje listę ostatnich aktualizacji bohaterów",
+	"champions-update-updates-summary": "Robot aktualizje listę ostatnich aktualizacji bohaterów"
 }
