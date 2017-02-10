@@ -44,7 +44,7 @@ def setKey(key):
     f = open(keyFile, 'w')
     try:
         f.write(key.strip() + '\n')
-        os.chmod(f.name, 0o755)
+        os.chmod(f.name, 0o644)
     finally:
         f.close()
     

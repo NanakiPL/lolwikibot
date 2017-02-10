@@ -33,7 +33,7 @@ family_files = { family: 'lib/family.py' }
     
     f = codecs.open(config_file, 'w', 'utf-8')
     f.write(res)
-    os.chmod(f.name, 0o755)
+    os.chmod(f.name, 0o644)
     
 
 def getConfig():
