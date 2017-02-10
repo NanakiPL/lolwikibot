@@ -10,6 +10,7 @@
 	"champions-update-summary": "Bot: Updating champion data ([[v%(short)s|%(full)s]])",
     
 	"champions-create-list-summary": "Bot: Adding a champion data list ([[v%(short)s|%(full)s]])",
+	"champions-revert-list-summary": "Bot: Reverting a champion data list ([[v%(short)s|%(full)s]])",
 	"champions-update-list-summary": "Bot: Updating a champion data list ([[v%(short)s|%(full)s]])",
     
 	"champions-create-keys-summary": "Bot: Adding a list of keys",

@@ -10,6 +10,7 @@
 	"champions-update-summary": "Summary used when updating a champion data module.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
     
 	"champions-create-list-summary": "Summary used when creating a list with champion data.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"champions-revert-list-summary": "Summary used when reverting changes to bot-maintained data list or when forced to downgrade.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
 	"champions-update-list-summary": "Summary used when updating a list with champion data.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
     
 	"champions-create-keys-summary": "Summary used when creating a list of keys/aliases.",
