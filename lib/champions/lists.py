@@ -1,23 +1,47 @@
 # -*- coding: utf-8 -*-
 
+import pywikibot, re
 
-            
-            
+from data import getChampions
+from ..bot import Bot, twtranslate, LuaError
+
+bot = Bot()
+
+# Other
+from distutils.version import StrictVersion
+
+from pprint import pprint
     
-def saveList(wiki, page, data):
+def saveList(page, champs, newver):
     wiki = page.site
-    version = re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', data['update'])
     
-    summary = twtranslate(wiki, 'champions-%s-list-summary' % ('update' if page.exists() else 'create')) % {
-        'full': version.group(0),
-        'short': version.group(1)
-    }
-    
+    data = {'list': champs, 'update': str(newver)}
     try:
-        wiki.saveData(page, data, summary = summary, order = ['list'])
-    except VersionConflict as e:
-        pywikibot.output('Version conflict: trying to save older version of data.' % e.old)
-def statLists(wikis, universal):
+        olddata = wiki.fetchData(page)
+        oldver = StrictVersion(olddata['update'])
+        action = 'revert'
+        if newver > oldver:
+            action = 'update'
+        elif newver < oldver and not bot.options['downgrade']:
+            pywikibot.output('Trying to save older data (\03{lightyellow}%s\03{default} -> \03{lightyellow}%s\03{default})' % (oldver, newver))
+            pywikibot.output('Use the -downgrade parameter to enable saving')
+            return
+    except LuaError:
+        olddata = {'list': {}}
+        action = 'create'
+    
+    if champs == olddata['list']:
+        data['update'] = olddata['update']
+        summary = twtranslate(wiki, 'lolwikibot-commentsonly-summary')
+    else:
+        summary = twtranslate(wiki, 'champions-%s-list-summary' % action) % {
+            'full': str(newver),
+            'short': re.match('^([0-9]+\.[0-9]+)\.[0-9]+$', str(newver)).group(1)
+        }
+    
+    wiki.saveData(page, data, summary = summary, order = ['list'])
+    
+def statLists(wikis, version):
     pages = {}
     for key, champ in universal.items():
         for stat in champ['stats']:
@@ -36,7 +60,7 @@ def statLists(wikis, universal):
             
             saveList(wiki, page, data)
     
-def tagsList(wikis, universal):
+def tagsList(wikis, version):
     data = {}
     for key, champ in universal.items():
         data[key] = {
@@ -49,7 +73,7 @@ def tagsList(wikis, universal):
         page = wiki.subpageOf('Module:Champion', 'list/tags')
         saveList(wiki, page, data)
     
-def resourceList(wikis, universal):
+def resourceList(wikis, version):
     data = {}
     for key, champ in universal.items():
         data[key] = {
@@ -62,7 +86,7 @@ def resourceList(wikis, universal):
         page = wiki.subpageOf('Module:Champion', 'list/resource')
         saveList(wiki, page, data)
     
-def infoList(wikis, universal):
+def infoList(wikis, version):
     data = {}
     for key, champ in universal.items():
         data[key] = {
@@ -75,27 +99,30 @@ def infoList(wikis, universal):
         page = wiki.subpageOf('Module:Champion', 'list/info')
         saveList(wiki, page, data)
     
-def nameList(wikis, locales):
-    res = {}
-    for locale, data in locales.items():
-        d = {}
-        for key, champ in data.items():
-            d[key] = {
-                'id': champ['id'],
-                'name': champ['name'],
-                'name_en': champ['name_en'],
-                'title': champ['title'],
-                'title_en': champ['title_en'],
-            }
-        res[locale] = {'list': d, 'update': champ['update']}
+def nameList(wikis, version):
     for wiki in wikis:
         page = wiki.subpageOf('Module:Champion', 'list/name')
-        pprint(res[wiki.locale])
-        saveList(wiki, page, res[wiki.locale])
+        bot.current_page = page
+        
+        data  = getChampions(version, wiki.locale)
+        champs = {}
+        
+        for key, champ in data.items():
+            champs[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'title': champ['title']
+            }
+            try:
+                champs[key]['name_en'] = champ['name_en']
+                champs[key]['title_en'] = champ['title_en']
+            except KeyError:
+                pass
+        saveList(page, champs, version)
     
 def update(wikis, version):
-    nameList(wikis)
-    tagsList(wikis)
-    resourceList(wikis)
-    infoList(wikis)
-    statLists(wikis)
+    nameList(wikis, version)
+    tagsList(wikis, version)
+    resourceList(wikis, version)
+    infoList(wikis, version)
+    statLists(wikis, version)
