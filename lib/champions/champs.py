@@ -5,8 +5,6 @@ import pywikibot, re
 from data import *
 from ..bot import Bot, twtranslate, LuaError
 
-from sets import Set
-
 bot = Bot()
 
 # Other
@@ -150,6 +148,7 @@ def saveChamp(page, champ, newver):
         'name_en',
         'title_en',
     ])
+    
 def preload(version, locales):
     pywikibot.output('\n\r  Preloading \03{lightyellow}default locale\03{default} data')
     getChampions(version)
@@ -158,7 +157,7 @@ def preload(version, locales):
         getChampions(version, locale)
     
 def update(wikis, version):
-    preload(version, Set(map(lambda x: x.locale, wikis)))
+    preload(version, set(map(lambda x: x.locale, wikis)))
     champs = sorted(getChampions(version).keys())
     for key in champs:
         for wiki in wikis:
