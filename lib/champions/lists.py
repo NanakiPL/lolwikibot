@@ -4,6 +4,7 @@ import pywikibot, re
 
 from data import getChampions
 from ..bot import Bot, twtranslate, LuaError
+from champs import prepStats
 
 bot = Bot()
 
@@ -42,23 +43,28 @@ def saveList(page, champs, newver):
     wiki.saveData(page, data, summary = summary, order = ['list'])
     
 def statLists(wikis, version):
-    pages = {}
-    for key, champ in universal.items():
-        for stat in champ['stats']:
-            p = 'stats.%s' % stat
-            if p not in pages: pages[p] = {'list':{},'update':champ['update']}
-            pages[p]['list'][key] = {
+    data  = getChampions(version)
+    stats = {}
+    
+    for key, champ in data.items():
+        s = prepStats(champ)
+        for stat, v in s.items():
+            if stat not in stats:
+                stats[stat] = {}
+            stats[stat][key] = {
                 'id': champ['id'],
                 'name': champ['name'],
                 'stats': {
-                    stat: champ['stats'][stat]
+                    stat: v
                 }
             }
-    for wiki in wikis:
-        for key, data in sorted(pages.items()):
-            page = wiki.subpageOf('Module:Champion', 'list/%s' % key)
+    
+    for stat, data in sorted(stats.items()):
+        for wiki in wikis:
+            page = wiki.subpageOf('Module:Champion', 'list/%s' % stat)
+            bot.current_page = page
             
-            saveList(wiki, page, data)
+            saveList(page, data, version)
     
 def tagsList(wikis, version):
     for wiki in wikis:
