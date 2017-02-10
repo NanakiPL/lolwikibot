@@ -164,23 +164,23 @@ def stepSysop(i):
             sysop = cfg['sysopnames'][family.name][wiki['site'].code].strip()
             if sysop != '':
                 output('Currently in config: %s' % sysop)
-                answers.append(('Keep current', 'k'))
-                default = 'k'
+                answers.append(('Current', 'c'))
+                default = 'c'
         except (TypeError, KeyError):
             pass
         
         if wiki['isSysop']:
             output('Your bot \03{lightgreen}has sysop rights\03{default} here')
-            answers.append(('Use bot', 'b'))
+            answers.append(('Bot', 'b'))
             default = default or 'b'
             
         if len(answers):
-            answers.append(('Use another', 'a'))
+            answers.append(('Another', 'a'))
         else:
             answers.append(('Specify', 's'))
-        answers.append(('Don\'t use any', 'd'))
+        answers.append(('None', 'n'))
             
-        choice = input_choice('\r\nWhat do you want to do?', answers, default or 'd', automatic_quit = False)
+        choice = input_choice('\r\nWhich one do you want to use?', answers, default or 'n', automatic_quit = False)
         if choice == 'k':
             wiki['sysopname'] = sysop
         elif choice == 'b':

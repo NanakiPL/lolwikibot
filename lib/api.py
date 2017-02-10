@@ -39,6 +39,7 @@ def readKey():
     return key
     
 def setKey(key):
+    import os
     global keyFile
     f = open(keyFile, 'w')
     try:
