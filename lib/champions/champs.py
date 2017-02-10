@@ -76,6 +76,7 @@ def prepChamp(key, version, locale):
     try:
         champ['name_en'] = data['name_en']
         champ['title_en'] = data['title_en']
+        champ['resource_en'] = data['partype_en']
     except KeyError:
         pass
     
