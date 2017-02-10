@@ -61,43 +61,56 @@ def statLists(wikis, version):
             saveList(wiki, page, data)
     
 def tagsList(wikis, version):
-    data = {}
-    for key, champ in universal.items():
-        data[key] = {
-            'id': champ['id'],
-            'name': champ['name'],
-            'tags': champ['tags']
-        }
-    data = {'list': data, 'update': champ['update']}
     for wiki in wikis:
         page = wiki.subpageOf('Module:Champion', 'list/tags')
-        saveList(wiki, page, data)
+        bot.current_page = page
+        
+        data  = getChampions(version, wiki.locale)
+        champs = {}
+        
+        for key, champ in data.items():
+            champs[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'tags': champ['tags']
+            }
+        saveList(page, champs, version)
     
 def resourceList(wikis, version):
-    data = {}
-    for key, champ in universal.items():
-        data[key] = {
-            'id': champ['id'],
-            'name': champ['name'],
-            'resource': champ['resource']
-        }
-    data = {'list': data, 'update': champ['update']}
     for wiki in wikis:
         page = wiki.subpageOf('Module:Champion', 'list/resource')
-        saveList(wiki, page, data)
+        bot.current_page = page
+        
+        data  = getChampions(version, wiki.locale)
+        champs = {}
+        
+        for key, champ in data.items():
+            champs[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'resource': champ['partype']
+            }
+            try:
+                champs[key]['resource_en'] = champ['partype_en']
+            except KeyError:
+                pass
+        saveList(page, champs, version)
     
 def infoList(wikis, version):
-    data = {}
-    for key, champ in universal.items():
-        data[key] = {
-            'id': champ['id'],
-            'name': champ['name'],
-            'info': champ['info']
-        }
-    data = {'list': data, 'update': champ['update']}
     for wiki in wikis:
         page = wiki.subpageOf('Module:Champion', 'list/info')
-        saveList(wiki, page, data)
+        bot.current_page = page
+        
+        data  = getChampions(version, wiki.locale)
+        champs = {}
+        
+        for key, champ in data.items():
+            champs[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'info': champ['info']
+            }
+        saveList(page, champs, version)
     
 def nameList(wikis, version):
     for wiki in wikis:
@@ -122,7 +135,7 @@ def nameList(wikis, version):
     
 def update(wikis, version):
     nameList(wikis, version)
-    tagsList(wikis, version)
-    resourceList(wikis, version)
     infoList(wikis, version)
+    resourceList(wikis, version)
+    tagsList(wikis, version)
     statLists(wikis, version)
