@@ -8,7 +8,6 @@ from ..bot import Bot, twtranslate, LuaError
 bot = Bot()
 
 # Other
-from collections import OrderedDict
 from distutils.version import StrictVersion
 
 def prepStats(data):
@@ -28,14 +27,6 @@ def prepStats(data):
     res['attackspeed']['base'] = round(0.625 / (1 + data['stats']['attackspeedoffset']), 5)
     
     return res
-    
-def prepInfo(data):
-    return OrderedDict([
-        ('attack', data['info']['attack']),
-        ('defense', data['info']['defense']),
-        ('magic', data['info']['magic']),
-        ('difficulty', data['info']['difficulty'])
-    ])
     
 def prepSkins(data):
     skins = {}
@@ -80,6 +71,7 @@ def prepChamp(key, version, locale):
     champ['title'] = data['title']
     champ['resource'] = data['partype']
     champ['tags'] = data['tags']
+    champ['info'] = data['info']
     
     try:
         champ['name_en'] = data['name_en']
@@ -88,7 +80,6 @@ def prepChamp(key, version, locale):
         pass
     
     champ['stats'] = prepStats(data)
-    champ['info'] = prepInfo(data)
     
     skins = prepSkins(data)
     if isinstance(skins, tuple):
