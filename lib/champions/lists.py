@@ -16,6 +16,7 @@ from pprint import pprint
     
 def saveList(page, champs, newver):
     wiki = page.site
+    newver = StrictVersion(newver)
     
     data = {'list': champs, 'update': str(newver)}
     try:
@@ -197,28 +198,31 @@ def updatesList(wikis, version):
         bot.current_page = page
         pywikibot.output('Getting versions from champion data modules')
         pywikibot.output('Press Ctrl+C anytime to skip this page\n\r')
-        
-        start_time = datetime.now()
-        i = 0
-        
-        data = {}
-        
-        for key in keys:
-            i += 1
-            champpage = wiki.subpageOf('Module:Champion', '%s' % key)
-            champ = wiki.fetchData(champpage, suppress = True)
+        try:
+            start_time = datetime.now()
+            i = 0
             
-            data[key] = {
-                'id': champ['id'],
-                'name': champ['name'],
-                'update': champ['update'],
-            }
+            data = {}
             
-            if i == count:
-                pywikibot.output('Progress: %3d / %3d' % (i, count))
-            elif i % 5 == 0:
-                pywikibot.output('Progress: %3d / %3d   Est. time left: %s' % (i, count, deltastr((datetime.now() - start_time) / i * (count - i))))
-        saveList(page, data, version)
+            for key in keys:
+                i += 1
+                champpage = wiki.subpageOf('Module:Champion', '%s' % key)
+                champ = wiki.fetchData(champpage, suppress = True)
+                
+                data[key] = {
+                    'id': champ['id'],
+                    'name': champ['name'],
+                    'update': champ['update'],
+                }
+                
+                if i == count:
+                    pywikibot.output('Progress: %3d / %3d' % (i, count))
+                elif i % 5 == 0:
+                    pywikibot.output('Progress: %3d / %3d   Est. time left: %s' % (i, count, deltastr((datetime.now() - start_time) / i * (count - i))))
+            saveList(page, data, version)
+        except KeyboardInterrupt:
+            pywikibot.output('\n\rSkipping this page')
+            pass
     
 def update(wikis, version):
     nameList(wikis, version)
