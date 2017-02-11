@@ -5,6 +5,7 @@ import pywikibot, re
 from data import getChampions
 from ..bot import Bot, twtranslate, LuaError
 from champs import prepStats
+from datetime import datetime, timedelta
 
 bot = Bot()
 
@@ -139,9 +140,90 @@ def nameList(wikis, version):
                 pass
         saveList(page, champs, version)
     
+def saveAliases(page, keys):
+    wiki = page.site
+    
+    try:
+        oldkeys = wiki.fetchData(page)
+        action = 'update'
+    except LuaError:
+        oldkeys = {}
+        action = 'create'
+    
+    keys.update(oldkeys)
+    
+    if keys == oldkeys:
+        summary = twtranslate(wiki, 'lolwikibot-commentsonly-summary')
+    else:
+        summary = twtranslate(wiki, 'champions-%s-keys-summary' % action)
+    
+    wiki.saveData(page, keys, summary = summary)
+    
+def aliases(wikis, version):
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'keys')
+        bot.current_page = page
+        
+        data  = getChampions(version, wiki.locale)
+        keys = {}
+        
+        for key, champ in data.items():
+            keys[champ['id']] = key
+            if champ['name'] != key:
+                keys[champ['name']] = key
+            try:
+                if champ['name_en'] != key:
+                    keys[champ['name_en']] = key
+            except KeyError:
+                pass
+        saveAliases(page, keys)
+        
+def deltastr(td):
+    s = str(td - timedelta(microseconds = td.microseconds))
+    if td.seconds > 1:
+        return s
+    return '%s.%s' % (s, ('%d' % round(td.microseconds / 10000)).ljust(2, '0'))
+    
+def updatesList(wikis, version):
+    champs = getChampions(version)
+    keys = sorted(champs.keys(), key = lambda x: champs[x]['name'])
+    count = len(keys)
+    
+    from time import sleep
+    from random import random
+    
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'list/updates')
+        bot.current_page = page
+        pywikibot.output('Getting versions from champion data modules')
+        pywikibot.output('Press Ctrl+C anytime to skip this page\n\r')
+        
+        start_time = datetime.now()
+        i = 0
+        
+        data = {}
+        
+        for key in keys:
+            i += 1
+            champpage = wiki.subpageOf('Module:Champion', '%s' % key)
+            champ = wiki.fetchData(champpage, suppress = True)
+            
+            data[key] = {
+                'id': champ['id'],
+                'name': champ['name'],
+                'update': champ['update'],
+            }
+            
+            if i == count:
+                pywikibot.output('Progress: %3d / %3d' % (i, count))
+            elif i % 5 == 0:
+                pywikibot.output('Progress: %3d / %3d   Est. time left: %s' % (i, count, deltastr((datetime.now() - start_time) / i * (count - i))))
+        saveList(page, data, version)
+    
 def update(wikis, version):
     nameList(wikis, version)
     infoList(wikis, version)
     resourceList(wikis, version)
     tagsList(wikis, version)
     statLists(wikis, version)
+    aliases(wikis, version)

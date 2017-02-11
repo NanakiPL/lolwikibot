@@ -9,6 +9,4 @@ def update(wikis, version):
     lists.update(wikis, version)
     
 def topVersion(wikis, version):
-    aliases = prepAliases(locales)
-    updateAliases(wikis, aliases)
-    lastUpdateList(wikis, universal)
+    lists.updatesList(wikis, version)
