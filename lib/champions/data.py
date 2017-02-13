@@ -26,7 +26,7 @@ def getChampions(version, locale = None):
             data[key]['partype_en'] = champ['partype']
             data[key]['passive']['name_en'] = champ['passive']['name']
             for i,v in enumerate(champ['spells']):
-                pass#data[key]['spells'][i]['name_en'] = v['name']
+                data[key]['spells'][i]['name_en'] = v['name']
             for i,v in enumerate(champ['skins']):
                 if v['name'] != 'default':
                     data[key]['skins'][i]['name_en'] = v['name']
