@@ -109,7 +109,7 @@ class Bot(Bot):
             else:
                 wiki.login()
             
-        if types: self.types = [x for x in types if x in self.__class_.types]
+        if types: self.types = [x for x in types if x in self.__class__.types]
         
     @property
     def current_page(self):
