@@ -137,9 +137,14 @@ class Bot(Bot):
     
     def printTable(self, type):
         output('\03{lightyellow}  Wiki     Region    Locale        Old  New\03{default}')
+        
+        downgrade = False
         for wiki in self.getWikiList():
             old = wiki.getVersion(type)
             new = wiki.realm['n'][type]
+            
+            up = wiki.needsUpdateTo(type, new)
+            downgrade = downgrade or up==-1
             
             output('  \03{lightaqua}%(wiki)-5s\03{default}    %(region)-6s    %(locale)-6s    %(color)s%(old)7s  %(new)-7s\03{default}' % {
                 'wiki':    wiki.lang,
@@ -147,8 +152,11 @@ class Bot(Bot):
                 'locale':  wiki.locale,
                 'old':     old,
                 'new':     new,
-                'color':   '\03{lightred}' if wiki.needsUpdateTo(type, new) else '\03{lightgreen}'
+                'color':   ['\03{lightpurple}', '\03{lightgreen}', '\03{lightred}'][up+1]
             })
+            
+        if downgrade:
+            output('\n\r  One or more wikis has a higher version of data than it\'s region.\n\r  If you want to downgrade use both -downgrade and -latest parameters.')
     
     def userPut(self, *args, **kwargs):
         if self.getOption('protect'): kwargs['async'] = False
@@ -210,7 +218,11 @@ class Wiki(pywikibot.site.APISite):
         if not isinstance(version, StrictVersion):
             version = StrictVersion(version)
         old = self.getVersion(type)
-        return not old or old < version
+        if not old or old < version:
+            return 1
+        if old > version:
+            return -1
+        return 0
     
     def getVersion(self, type):
         if type not in self.versions:

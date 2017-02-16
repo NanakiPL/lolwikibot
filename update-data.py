@@ -21,7 +21,7 @@ def getWorkList(bot, type):
             v = str(v)
             if v not in res: res[v] = []
             for wiki in wikis:
-                if wiki.needsUpdateTo(type, v):
+                if wiki.needsUpdateTo(type, v) == 1 and StrictVersion(wiki.realm['n'][type]) >= StrictVersion(v):
                     res[v].append(wiki)
     return sorted([x for x in res.items() if len(x[1]) > 0], key = lambda x: StrictVersion(x[0]))
     
