@@ -136,7 +136,7 @@ class Bot(Bot):
         return res
     
     def printTable(self, type):
-        output('\03{lightyellow}  Wiki     Region    Locale        Old  New\03{default}')
+        output('\03{lightyellow}  Wiki     Region    Locale       Wiki  Realm\03{default}')
         
         downgrade = False
         for wiki in self.getWikiList():
@@ -156,7 +156,7 @@ class Bot(Bot):
             })
             
         if downgrade:
-            output('\n\r  One or more wikis has a higher version of data than it\'s region.\n\r  If you want to downgrade use both -downgrade and -latest parameters.')
+            output('\n\r  One or more wikis has a higher version of data than its region.\n\r  If you want to downgrade use both -downgrade and -latest parameters.')
     
     def userPut(self, *args, **kwargs):
         if self.getOption('protect'): kwargs['async'] = False
