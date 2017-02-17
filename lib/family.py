@@ -18,7 +18,7 @@ class Family(family.Family):
         self.name = 'lol'
         self.langs = {
             'en': 'nanaki.wikia.com',
-            'pl': 'pl.nanaki.wikia.com',
+            'pl': 'pl.leagueoflegends.wikia.com',
         }
 
     def scriptpath(self, code):
