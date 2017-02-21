@@ -181,7 +181,7 @@ def stepSysop(i):
         answers.append(('None', 'n'))
             
         choice = input_choice('\r\nWhich one do you want to use?', answers, default or 'n', automatic_quit = False)
-        if choice == 'k':
+        if choice == 'c':
             wiki['sysopname'] = sysop
         elif choice == 'b':
             wiki['sysopname'] = botname
