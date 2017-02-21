@@ -32,10 +32,10 @@ def getChampions(version, locale = None):
                     pass
             for i,v in enumerate(champ['skins']):
                 if v['name'] != 'default':
-                try:
-                    data[key]['skins'][i]['name_en'] = v['name']
-                except KeyError:
-                    pass
+                    try:
+                        data[key]['skins'][i]['name_en'] = v['name']
+                    except KeyError:
+                        pass
     
     for key, champ in data.items():
         if champ['id'] not in getChampion.keys:
