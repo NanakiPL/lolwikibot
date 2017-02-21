@@ -151,14 +151,27 @@ def saveAliases(page, keys):
         oldkeys = {}
         action = 'create'
     
-    keys.update(oldkeys)
+    extra = []
+    for key in oldkeys:
+        if key not in keys:
+            extra += [key]
+    
+    keyset = set(keys.values())
+    
+    keys = dict(oldkeys.items() + keys.items())
+    
+    for key in keyset:
+        try:
+            del keys[key]
+        except KeyError:
+            pass
     
     if keys == oldkeys:
         summary = twtranslate(wiki, 'lolwikibot-commentsonly-summary')
     else:
         summary = twtranslate(wiki, 'champions-%s-keys-summary' % action)
     
-    wiki.saveData(page, keys, summary = summary)
+    wiki.saveData(page, keys, summary = summary, extra = extra)
     
 def aliases(wikis, version):
     for wiki in wikis:
