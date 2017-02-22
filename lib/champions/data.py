@@ -86,7 +86,10 @@ def championUpdated(champ, v1, v2, locale = None):
     
         if s1['cooldown'] != s2['cooldown']: return 4
         if s1['cost'] != s2['cost']: return 5
-        if s1['costType'].lower() != s2['costType'].lower(): return 6
+        try:
+            if s1['costType'].lower() != s2['costType'].lower(): return 6
+        except KeyError:
+            pass
         if s1['range'] != s2['range']: return 7
         
         try:
