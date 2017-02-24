@@ -104,7 +104,7 @@ def saveChamp(page, champ, newver):
             action = 'update'
             changed = championUpdated(champ['key'], oldver, newver)
             if changed:
-                pywikibot.output('Champion updated since \03{lightyellow}%s\03{default} (%d)' % (oldver, changed))
+                pywikibot.output('Champion updated since \03{lightyellow}%s\03{default} (%s)' % (oldver, changed))
                 data['update'] = str(newver)
         elif newver < oldver:
             if bot.options['downgrade']:
