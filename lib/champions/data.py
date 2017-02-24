@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import json, re
-from .. import api
+from .. import api, SuperFloat, SuperFloats
 
 from pprint import pprint
 
@@ -13,7 +13,7 @@ def getChampions(version, locale = None):
         pass
     
     try:
-        return json.load(open('cache/champions-%s-%s.json' % (str(version), locale or 'default')))
+        return json.load(open('cache/champions-%s-%s.json' % (str(version), locale or 'default')), parse_float = SuperFloat)
     except IOError:
         pass
     
@@ -41,11 +41,14 @@ def getChampions(version, locale = None):
         if champ['id'] not in getChampion.keys:
             getChampion.keys[champ['id']] = key
     
+    data = SuperFloats(data)
+    
     if not getChampions.v or getChampions.v < version:
         getChampions.v = version
         getChampions.cache = {}
     if getChampions.v == version:
         getChampions.cache[locale or 'default'] = data
+        
     try:
         json.dump(data, open('cache/champions-%s-%s.json' % (str(version), locale or 'default'), 'w'))
     except IOError:
@@ -76,43 +79,39 @@ def championUpdated(champ, v1, v2, locale = None):
     c1 = getChampion(champ, v1, locale)
     c2 = getChampion(champ, v2, locale)
     
-    if c1['title'] != c2['title']: return 1
+    if c1['title'] != c2['title']: return 'title'
     for key in c2['stats'].keys():
-        if c1['stats'][key] != c2['stats'][key]: return 2
+        if c1['stats'][key] != c2['stats'][key]: return 'stats'
         
-    if len(c1['spells']) != len(c2['spells']): return 3
+    if len(c1['spells']) != len(c2['spells']): return 'spell-no'
     for i, s2 in enumerate(c2['spells']):
         s1 = c1['spells'][i]
     
-        if s1['cooldown'] != s2['cooldown']: return 4
-        if s1['cost'] != s2['cost']: return 5
-        try:
-            if s1['costType'].lower() != s2['costType'].lower(): return 6
-        except KeyError:
-            pass
-        if s1['range'] != s2['range']: return 7
+        if s1['cooldown'] != s2['cooldown']: return 'spell-cooldown'
+        if s1['cost'] != s2['cost']: return 'spell-cost'
+        if s1['range'] != s2['range']: return 'spell-range'
         
         try:
-            if s1['effect'] != s2['effect']: return 8
+            if s1['effect'] != s2['effect']: return 'spell-effect'
         except KeyError:
-            if ('effect' in s1) != ('effect' in s2): return 9
+            if ('effect' in s1) != ('effect' in s2): return 'spell-effect-xor'
         
         try:
-            if len(s1['vars']) != len(s2['vars']): return 10
+            if len(s1['vars']) != len(s2['vars']): return 'spell-vars-no'
             for j, vv2 in enumerate(s2['vars']):
                 vv1 = s1['vars'][j]
                 try:
-                    if vv1['coeff'] != vv2['coeff']: return 11
+                    if vv1['coeff'] != vv2['coeff']: return 'spell-vars-coeff'
                 except KeyError:
-                    if ('coeff' in vv1) != ('coeff' in vv2): return 12
+                    if ('coeff' in vv1) != ('coeff' in vv2): return 'spell-vars-coeff-xor'
                 try:
-                    if vv1['link'] != vv2['link']: return 13
+                    if vv1['link'] != vv2['link']: return 'spell-vars-link'
                 except KeyError:
-                    if ('link' in vv1) != ('link' in vv2): return 14
+                    if ('link' in vv1) != ('link' in vv2): return 'spell-vars-link-xor'
                 try:
-                    if vv1['ranksWith'] != vv2['ranksWith']: return 15
+                    if vv1['ranksWith'] != vv2['ranksWith']: return 'spell-vars-rankswith'
                 except KeyError:
-                    if ('ranksWith' in vv1) != ('ranksWith' in vv2): return 16
+                    if ('ranksWith' in vv1) != ('ranksWith' in vv2): return 'spell-vars-rankswith-xor'
         except KeyError:
-            if ('vars' in s1) != ('vars' in s2): return 17
+            if ('vars' in s1) != ('vars' in s2): return 'spell-vars-xor'
     return False
