@@ -32,28 +32,39 @@ def prepSkins(data):
     skins = {}
     maxId = 0
     for skin in data['skins']:
-        num = skin['id'] % 1000
-        if num > 0:
-            maxId = max(maxId, num)
-            skins[num] = skin
+        num = skin['num']
+        maxId = max(maxId, num)
+        skins[num] = skin
     
-    hasEn = False
-    res = [None] * maxId
-    res_en = [None] * maxId
-    for x in range(0, maxId):
+    res = {
+        'skins': [None] * maxId,
+        'skins_en': [None] * maxId,
+        'skins_chromas': []
+    }
+    for x in range(0, maxId+1):
         try:
-            s = skins[x+1]
-            res[x] = s['name']
+            s = skins[x]
             try:
-                res_en[x] = s['name_en']
-                hasEn = True
+                if s['chromas']:
+                    res['skins_chromas'] += [x]
+            except KeyError:
+                pass
+            if x == 0: continue
+            
+            res['skins'][x-1] = s['name']
+            try:
+                res['skins_en'][x-1] = s['name_en']
             except KeyError:
                 pass
         except KeyError:
-            res[x] = ''
-            res_en[x] = ''
-    if hasEn:
-        return res, res_en
+            res['skins'][x-1] = ''
+            res['skins_en'][x-1] = ''
+    
+    if not any(res['skins_en']):
+        del res['skins_en']
+    if len(res['skins_chromas']) == 0:
+        del res['skins_chromas']
+    
     return res
     
 def prepSkills(data):
@@ -82,11 +93,7 @@ def prepChamp(key, version, locale):
     
     champ['stats'] = prepStats(data)
     
-    skins = prepSkins(data)
-    if isinstance(skins, tuple):
-        champ['skins'], champ['skins_en'] = skins
-    else:
-        champ['skins'] = skins
+    champ.update(prepSkins(data))
     
     return champ
     
