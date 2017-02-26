@@ -87,6 +87,7 @@ def championUpdated(champ, v1, v2, locale = None):
     for i, s2 in enumerate(c2['spells']):
         s1 = c1['spells'][i]
     
+        if s1['key'] != s2['key']: return 'spell-key'
         if s1['cooldown'] != s2['cooldown']: return 'spell-cooldown'
         if s1['cost'] != s2['cost']: return 'spell-cost'
         if s1['range'] != s2['range']: return 'spell-range'
