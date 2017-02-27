@@ -16,6 +16,9 @@
 	"champions-create-keys-summary": "Robot dodaje listę kluczy",
 	"champions-update-keys-summary": "Robot aktualizje listę kluczy",
     
+	"champions-create-skills-summary": "Robot dodaje listę umiejętności",
+	"champions-update-skills-summary": "Robot aktualizje listę umiejętności",
+    
 	"champions-create-updates-summary": "Robot dodaje listę ostatnich aktualizacji bohaterów",
 	"champions-update-updates-summary": "Robot aktualizje listę ostatnich aktualizacji bohaterów"
 }

@@ -16,6 +16,9 @@
 	"champions-create-keys-summary": "Summary used when creating a list of keys/aliases.",
 	"champions-update-keys-summary": "Summary used when updating a list of keys/aliases.",
     
+	"champions-create-skills-summary": "Summary used when creating a list of skill names.",
+	"champions-update-skills-summary": "Summary used when updating a list of skill names.",
+    
 	"champions-create-updates-summary": "Summary used when creating a list of last update version per character",
 	"champions-update-updates-summary": "Summary used when updating a list of last update version per character"
 }

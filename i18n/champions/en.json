@@ -16,6 +16,9 @@
 	"champions-create-keys-summary": "Bot: Adding a list of keys",
 	"champions-update-keys-summary": "Bot: Updating a list of keys",
     
+	"champions-create-skills-summary": "Bot: Adding a list of skills",
+	"champions-update-skills-summary": "Bot: Updating a list of skills",
+    
 	"champions-create-updates-summary": "Bot: Adding a list of last champion updates",
 	"champions-update-updates-summary": "Bot: Updating a list of last champion updates"
 }
