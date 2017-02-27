@@ -258,9 +258,6 @@ def updatesList(wikis, version):
     keys = sorted(champs.keys(), key = lambda x: champs[x]['name'])
     count = len(keys)
     
-    from time import sleep
-    from random import random
-    
     for wiki in wikis:
         page = wiki.subpageOf('Module:Champion', 'list/updates')
         bot.current_page = page
