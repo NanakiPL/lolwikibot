@@ -178,7 +178,7 @@ def aliases(wikis, version):
         page = wiki.subpageOf('Module:Champion', 'keys')
         bot.current_page = page
         
-        data  = getChampions(version, wiki.locale)
+        data = getChampions(version, wiki.locale)
         keys = {}
         
         for key, champ in data.items():
@@ -191,6 +191,61 @@ def aliases(wikis, version):
             except KeyError:
                 pass
         saveAliases(page, keys)
+    
+def saveSkills(page, skills):
+    wiki = page.site
+    
+    try:
+        oldkeys = wiki.fetchData(page)
+        action = 'update'
+    except LuaError:
+        oldkeys = {}
+        action = 'create'
+    
+    extra = []
+    for key in oldkeys:
+        if key not in skills:
+            extra += [key]
+    
+    skills = dict(oldkeys.items() + skills.items())
+    
+    if skills == oldkeys:
+        summary = twtranslate(wiki, 'lolwikibot-commentsonly-summary')
+    else:
+        summary = twtranslate(wiki, 'champions-%s-skills-summary' % action)
+    
+    wiki.saveData(page, skills, summary = summary, extra = extra)
+    
+def skills(wikis, version):
+    for wiki in wikis:
+        page = wiki.subpageOf('Module:Champion', 'skills')
+        bot.current_page = page
+        
+        data = getChampions(version, wiki.locale)
+        skills = {}
+        
+        for champ in data.values():
+            s = set()
+            
+            s.add(champ['passive']['name'])
+            s.update(re.split('\s*/\s*', champ['passive']['name']))
+            
+            for spell in champ['spells']:
+                s.add(spell['name'])
+                s.update(re.split('\s*/\s*', spell['name']))
+                
+            for skill in s:
+                try:
+                    skills[skill].add(champ['name'])
+                except KeyError:
+                    skills[skill] = set([champ['name']])
+        
+        for key in skills:
+            if len(skills[key]) == 1:
+                skills[key] = next(iter(skills[key]))
+            else:
+                skills[key] = sorted(skills[key])
+        saveSkills(page, skills)
         
 def deltastr(td):
     s = str(td - timedelta(microseconds = td.microseconds))
@@ -235,12 +290,3 @@ def updatesList(wikis, version):
             saveList(page, data, version)
         except KeyboardInterrupt:
             pywikibot.output('\n\rSkipping this page')
-            pass
-    
-def update(wikis, version):
-    nameList(wikis, version)
-    infoList(wikis, version)
-    resourceList(wikis, version)
-    tagsList(wikis, version)
-    statLists(wikis, version)
-    aliases(wikis, version)
