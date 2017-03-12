@@ -7,7 +7,7 @@
     
 	"champions-create-summary": "Robot dodaje dane bohatera ([[v%(short)s|%(full)s]])",
 	"champions-revert-summary": "Robot przywraca dane bohatera ([[v%(short)s|%(full)s]])",
-	"champions-update-summary": "Robot aktualizuje dane bohatera do wersji ([[v%(short)s|%(full)s]])",
+	"champions-update-summary": "Robot aktualizuje dane bohatera ([[v%(short)s|%(full)s]])",
     
 	"champions-create-list-summary": "Robot dodaje listę z danymi bohaterów ([[v%(short)s|%(full)s]])",
 	"champions-revert-list-summary": "Robot przywraca listę z danymi bohaterów ([[v%(short)s|%(full)s]])",
