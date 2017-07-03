@@ -1,0 +1,21 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"items-create-summary": "Summary used when creating an item data module.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"items-revert-summary": "Summary used when reverting changes to an item data module or forced to downgrade.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"items-update-summary": "Summary used when updating an item data module.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+    
+	"items-create-list-summary": "Summary used when creating a list with item data.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"items-revert-list-summary": "Summary used when reverting changes to a list with item data or forced to downgrade.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+	"items-update-list-summary": "Summary used when updating a list with item data.\nParameters:\n* %(full)s - full version format (#.#.#)\n* %(short)s - short version format (#.#)",
+    
+	"items-create-keys-summary": "Summary used when creating a list of keys/aliases.",
+	"items-update-keys-summary": "Summary used when updating a list of keys/aliases.",
+    
+	"items-create-updates-summary": "Summary used when creating a list of last update version per item",
+	"items-update-updates-summary": "Summary used when updating a list of last update version per item"
+}

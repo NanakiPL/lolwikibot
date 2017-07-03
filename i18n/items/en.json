@@ -1,0 +1,21 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"items-create-summary": "Bot: Adding item data ([[v%(short)s|%(full)s]])",
+	"items-revert-summary": "Bot: Reverting item data ([[v%(short)s|%(full)s]])",
+	"items-update-summary": "Bot: Updating item data ([[v%(short)s|%(full)s]])",
+    
+	"items-create-list-summary": "Bot: Adding an item data list ([[v%(short)s|%(full)s]])",
+	"items-revert-list-summary": "Bot: Reverting an item data list ([[v%(short)s|%(full)s]])",
+	"items-update-list-summary": "Bot: Updating an item data list ([[v%(short)s|%(full)s]])",
+    
+	"items-create-keys-summary": "Bot: Adding a list of keys",
+	"items-update-keys-summary": "Bot: Updating a list of keys",
+    
+	"items-create-updates-summary": "Bot: Adding a list of last item updates",
+	"items-update-updates-summary": "Bot: Updating a list of last item updates"
+}

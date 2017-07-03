@@ -1,0 +1,21 @@
+{
+	"@metadata": {
+		"authors": [
+            "Nanaki"
+        ]
+	},
+    
+	"items-create-summary": "Robot dodaje dane przedmiotu ([[v%(short)s|%(full)s]])",
+	"items-revert-summary": "Robot przywraca dane przedmiotu ([[v%(short)s|%(full)s]])",
+	"items-update-summary": "Robot aktualizuje dane przedmiotu ([[v%(short)s|%(full)s]])",
+    
+	"items-create-list-summary": "Robot dodaje listę z danymi przedmiotów ([[v%(short)s|%(full)s]])",
+	"items-revert-list-summary": "Robot przywraca listę z danymi przedmiotów ([[v%(short)s|%(full)s]])",
+	"items-update-list-summary": "Robot aktualizuje listę z danymi przedmiotów ([[v%(short)s|%(full)s]])",
+    
+	"items-create-keys-summary": "Robot dodaje listę kluczy",
+	"items-update-keys-summary": "Robot aktualizje listę kluczy",
+    
+	"items-create-updates-summary": "Robot dodaje listę ostatnich aktualizacji przedmiotów",
+	"items-update-updates-summary": "Robot aktualizje listę ostatnich aktualizacji przedmiotów"
+}
