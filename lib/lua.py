@@ -3,12 +3,12 @@ from collections import OrderedDict
 import re
 
 def dumps(obj, depth=0):
+    if isinstance(obj, bool):
+        return 'true' if obj else 'false'
     if isinstance(obj, (int, float)):
         return '%g' % round(obj, 5)
     if isinstance(obj, basestring):
         return '\'%s\'' % obj.replace('\'', '\\\'')
-    if isinstance(obj, bool):
-        return 'true' if obj else 'false'
     if isinstance(obj, dict) and not isinstance(obj, OrderedDict):
         obj = OrderedDict(sorted(obj.items()))
     if type(obj) is OrderedDict:
