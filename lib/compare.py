@@ -70,23 +70,22 @@ def _compareDicts(old, new, path, keymap = None):
     except TypeError:
         pass
     
+    res = False
     for k in sorted(keys):
         if (k in old) != (k in new):
-            if (k in new):
-                _raise(Difference('changed', None, new[k], path + [k]))
-            else:
-                _raise(Difference('changed', old[k], None, path + [k]))
+            _raise(Difference('changed', old[k] if k in old else None, new[k] if k in new else None, path + [k]))
         else:
             try:
-                compare(old[k], new[k], path = path + [k], keymap = subkeys[k])
+                res = res or compare(old[k], new[k], path = path + [k], keymap = subkeys[k])
             except (UnboundLocalError, KeyError):
-                compare(old[k], new[k], path = path + [k])
+                res = res or compare(old[k], new[k], path = path + [k])
     
-    return False
+    return res
 
 def _compareLists(old, new, path, keymap = None):
     if len(old) != len(new):
         _raise(Difference('len', len(old), len(new), path))
+        
         basic = True
         for i in range(0, max(len(old), len(new))):
             if (i < len(old) and isinstance(old[i], (list, dict))) or (i < len(new) and isinstance(new[i], (list, dict))):
@@ -106,31 +105,35 @@ def _compareLists(old, new, path, keymap = None):
         if diff and basic:
             del compare.stack[-diff:]
             _raise(Difference('changed', old, new, path))
-        return diff
+        return bool(diff)
     return False
         
-def compare(old, new, full = False, path = [], keymap = None):
+def _compare(old, new, full = False, path = [], keymap = None):
+    res = False
+    if full: compare.stack = []
+    if isinstance(old, (Number, basestring)) != isinstance(new, (Number, basestring)) or isinstance(old, list) != isinstance(new, list) or isinstance(old, dict) != isinstance(new, dict):
+        _raise(Difference('mismatch', type(old), type(new), path))
+        return True
+    
+    if isinstance(old, dict):
+        res = _compareDicts(old, new, path, keymap = keymap)
+    elif isinstance(old, list):
+        res = _compareLists(old, new, path, keymap = keymap)
+    else:
+        if _compareBasic(old, new):
+            res = True
+            _raise(Difference('changed', old, new, path))
+    
+    if full:
+        stack = compare.stack
+        del compare.stack
+        if len(stack):
+            return stack
+    print 'RES: %-50s %s' % ('.'.join(map(unicode, path)), res)
+    return bool(res)
+        
+def compare(*args, **kwargs):
     try:
-        res = False
-        if full: compare.stack = []
-        if isinstance(old, (Number, basestring)) != isinstance(new, (Number, basestring)) or isinstance(old, list) != isinstance(new, list) or isinstance(old, dict) != isinstance(new, dict):
-            _raise(Difference('mismatch', type(old), type(new), path))
-            return True
-        
-        if isinstance(old, dict):
-            res = res or _compareDicts(old, new, path, keymap = keymap)
-        elif isinstance(old, list):
-            res = res or _compareLists(old, new, path, keymap = keymap)
-        else:
-            if _compareBasic(old, new):
-                res = True
-                _raise(Difference('changed', old, new, path))
-        
-        if full:
-            stack = compare.stack
-            del compare.stack
-            if len(stack):
-                return stack
-        return bool(res)
+        return _compare(*args, **kwargs)
     except Difference:
         return True
