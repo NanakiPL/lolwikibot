@@ -5,6 +5,8 @@ from decimal import Decimal, InvalidOperation
 
 from pprint import pprint #debug
 
+__all__ = ['compare']
+
 class Difference(Exception):
     types = {
         'changed': u'Changed  (%s -> %s)',
@@ -110,24 +112,27 @@ def _compareLists(old, new, path, keymap = None):
     return False
         
 def compare(old, new, full = False, path = [], keymap = None):
-    res = False
-    if full: compare.stack = []
-    if isinstance(old, (Number, basestring)) != isinstance(new, (Number, basestring)) or isinstance(old, list) != isinstance(new, list) or isinstance(old, dict) != isinstance(new, dict):
-        _raise(Difference('mismatch', type(old), type(new), path))
+    try:
+        res = False
+        if full: compare.stack = []
+        if isinstance(old, (Number, basestring)) != isinstance(new, (Number, basestring)) or isinstance(old, list) != isinstance(new, list) or isinstance(old, dict) != isinstance(new, dict):
+            _raise(Difference('mismatch', type(old), type(new), path))
+            return True
+        
+        if isinstance(old, dict):
+            res = res or _compareDicts(old, new, path, keymap = keymap)
+        elif isinstance(old, list):
+            res = res or _compareLists(old, new, path, keymap = keymap)
+        else:
+            if _compareBasic(old, new):
+                res = True
+                _raise(Difference('changed', old, new, path))
+        
+        if full:
+            stack = compare.stack
+            del compare.stack
+            if len(stack):
+                return stack
+        return bool(res)
+    except Difference:
         return True
-    
-    if isinstance(old, dict):
-        res = res or _compareDicts(old, new, path, keymap = keymap)
-    elif isinstance(old, list):
-        res = res or _compareLists(old, new, path, keymap = keymap)
-    else:
-        if _compareBasic(old, new):
-            res = True
-            _raise(Difference('changed', old, new, path))
-    
-    if full:
-        stack = compare.stack
-        del compare.stack
-        if len(stack):
-            return stack
-    return bool(res)
