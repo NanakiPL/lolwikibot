@@ -3,8 +3,6 @@
 from numbers import Number
 from decimal import Decimal, InvalidOperation
 
-from pprint import pprint #debug
-
 __all__ = ['compare']
 
 class Difference(Exception):
